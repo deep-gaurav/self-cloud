@@ -4,6 +4,7 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
+pub mod common;
 pub mod error_template;
 
 #[component]

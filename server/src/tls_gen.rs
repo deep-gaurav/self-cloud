@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use app::common::{SSLProvisioning, DOMAIN_MAPPING};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -17,7 +18,7 @@ use rcgen::{
 };
 use tracing::info;
 
-use crate::{leptos_service::AppState, SSLProvisioning, PEERS};
+use crate::leptos_service::AppState;
 
 pub type TLSState = Arc<RwLock<HashMap<String, KeyAuthorization>>>;
 
@@ -76,10 +77,10 @@ pub async fn tls_generator(acme: TLSState) -> anyhow::Result<()> {
 
     loop {
         let domain = 'ba: {
-            let mut peers = PEERS.write().unwrap();
+            let mut peers = DOMAIN_MAPPING.write().unwrap();
             for (domain, peer) in peers.iter_mut() {
-                if peer.provisioning.is_not_provisioned() {
-                    peer.provisioning = SSLProvisioning::Provisioning;
+                if peer.ssl_provision.is_not_provisioned() {
+                    peer.ssl_provision = SSLProvisioning::Provisioning;
                     break 'ba Some(domain.clone());
                 }
             }
@@ -217,7 +218,7 @@ pub async fn tls_generator(acme: TLSState) -> anyhow::Result<()> {
                 .expect("cant write key");
 
                 {
-                    let mut peers = PEERS.write().unwrap();
+                    let mut peers = DOMAIN_MAPPING.write().unwrap();
                     if let Some(peer) = peers.get_mut(&domain) {
                         let cert = pingora::tls::x509::X509::from_pem(cert_chain_pem.as_bytes());
                         let key = pingora::tls::pkey::PKey::private_key_from_pem(
@@ -225,7 +226,8 @@ pub async fn tls_generator(acme: TLSState) -> anyhow::Result<()> {
                         );
 
                         if let (Ok(cert), Ok(key)) = (cert, key) {
-                            peer.provisioning = SSLProvisioning::Provisioned(cert, key);
+                            peer.ssl_provision =
+                                SSLProvisioning::Provisioned(app::common::SSlData { cert, key });
                         }
                     }
                 };

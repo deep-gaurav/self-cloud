@@ -3,7 +3,10 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use app::App;
+use app::{
+    common::{add_project, add_project_domain},
+    App,
+};
 use axum::response::{IntoResponse, Response};
 use axum::{body::Body as AxumBody, Router};
 use axum::{
@@ -24,9 +27,7 @@ use pingora::{
 
 use crate::{
     fileserv::file_and_error_handler,
-    gateway::add_peer,
     tls_gen::{acme_handler, tls_generator, TLSState},
-    PEERS,
 };
 
 pub struct LeptosService {}
@@ -91,18 +92,15 @@ async fn run_main() {
     tracing::info!("listening on http://{}", &addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
-    if let Err(err) = add_peer("cloud.deepwith.in".to_string(), 3000).await {
-        tracing::error!("cant add cloud.deepwith.in");
-        return;
-    }
-
-    if let Err(err) = add_peer("admin.cloud.deepwith.in".to_string(), 3000).await {
-        tracing::error!("cant add admin.cloud.deepwith.in");
-        return;
-    }
-
-    if let Err(err) = add_peer("p9000.cloud.deepwith.in".to_string(), 9000).await {
-        tracing::error!("cant add p9000.cloud.deepwith.in");
+    let project = match add_project("cloud-panel", 3000).await {
+        Ok(project) => project,
+        Err(err) => {
+            tracing::error!("Cant create cloud-panel project {err:#?}");
+            return;
+        }
+    };
+    if let Err(err) = add_project_domain(project, "cloud.deepwith.in".to_string()).await {
+        tracing::error!("Cant add panel domain {err:#?}");
         return;
     }
 

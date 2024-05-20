@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::RwLock};
 
-use gateway::{add_peer, Gateway};
+use gateway::Gateway;
 use leptos_service::LeptosService;
 use openssl::pkey::Private;
 use pingora::{
@@ -24,43 +24,6 @@ use tikv_jemallocator::Jemalloc;
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
-
-pub struct Peer {
-    peer: Box<HttpPeer>,
-    provisioning: SSLProvisioning,
-}
-
-pub enum SSLProvisioning {
-    NotProvisioned,
-    Provisioning,
-    Provisioned(
-        pingora::tls::x509::X509,
-        pingora::tls::pkey::PKey<pingora::tls::pkey::Private>,
-    ),
-}
-
-impl SSLProvisioning {
-    /// Returns `true` if the sslprovisioning is [`NotProvisioned`].
-    ///
-    /// [`NotProvisioned`]: SSLProvisioning::NotProvisioned
-    #[must_use]
-    pub fn is_not_provisioned(&self) -> bool {
-        matches!(self, Self::NotProvisioned)
-    }
-
-    /// Returns `true` if the sslprovisioning is [`Provisioning`].
-    ///
-    /// [`Provisioning`]: SSLProvisioning::Provisioning
-    #[must_use]
-    pub fn is_provisioning(&self) -> bool {
-        matches!(self, Self::Provisioning)
-    }
-}
-
-pub static PEERS: Lazy<RwLock<HashMap<String, Peer>>> = Lazy::new(|| {
-    let mut peers = HashMap::new();
-    RwLock::new(peers)
-});
 
 fn main() {
     tracing_subscriber::fmt::init();

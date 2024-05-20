@@ -15,8 +15,23 @@ http.workspace = true
 cfg-if.workspace = true
 thiserror.workspace = true
 
+uuid.workspace = true
+pingora = { workspace = true, optional = true }
+once_cell = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+
+anyhow.workspace = true
+
+
 [features]
 default = []
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum"]
-
+ssr = [
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "dep:leptos_axum",
+    "dep:pingora",
+    "dep:once_cell",
+    "dep:tokio",
+]

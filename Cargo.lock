@@ -85,13 +85,18 @@ checksum = "d301b3b94cb4b2f23d7917810addbbaff90738e0ca2be692bd027e70d7e0330c"
 name = "app"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cfg-if",
  "http 1.1.0",
  "leptos",
  "leptos_axum",
  "leptos_meta",
  "leptos_router",
+ "once_cell",
+ "pingora",
  "thiserror",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -3162,6 +3167,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

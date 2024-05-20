@@ -1,3 +1,4 @@
+use app::common::{SSLProvisioning, DOMAIN_MAPPING};
 use axum::http::header;
 use openssl::ssl::NameType;
 use pingora::{
@@ -7,8 +8,6 @@ use pingora::{
     upstreams::peer::HttpPeer,
     Error, Result,
 };
-
-use crate::{SSLProvisioning, PEERS};
 
 pub struct Gateway {
     provisioning_gateway: Box<HttpPeer>,
@@ -63,19 +62,22 @@ impl ProxyHttp for Gateway {
             pingora::Error::because(pingora::ErrorType::InternalError, "host not str", e)
         })?;
         let peers = 'pe: {
-            let peers = PEERS.read().unwrap();
+            let peers = DOMAIN_MAPPING.read().unwrap();
             if let Some(peer) = peers.get(host) {
-                match peer.provisioning {
-                    crate::SSLProvisioning::NotProvisioned => {
+                match peer.ssl_provision {
+                    SSLProvisioning::NotProvisioned => {
                         return Err(pingora::Error::explain(
                             pingora::ErrorType::InternalError,
                             "TLS Provisioning not started",
                         ))
                     }
-                    crate::SSLProvisioning::Provisioning => {
-                        break 'pe self.provisioning_gateway.clone()
+                    SSLProvisioning::Provisioning => break 'pe self.provisioning_gateway.clone(),
+                    SSLProvisioning::Provisioned(_) => {
+                        let project = peer.project.upgrade();
+                        if let Some(project) = project {
+                            break 'pe project.peer.clone();
+                        }
                     }
-                    crate::SSLProvisioning::Provisioned(_, _) => break 'pe peer.peer.clone(),
                 }
             }
             return Err(pingora::Error::explain(
@@ -87,45 +89,6 @@ impl ProxyHttp for Gateway {
     }
 }
 
-pub async fn add_peer(domain: String, port: u32) -> anyhow::Result<()> {
-    if let (Ok(cert), Ok(key)) = (
-        tokio::fs::read(format!("certificates/{domain}/cert.pem")).await,
-        tokio::fs::read(format!("certificates/{domain}/key.pem")).await,
-    ) {
-        let cert = pingora::tls::x509::X509::from_pem(&cert)?;
-        let key = pingora::tls::pkey::PKey::private_key_from_pem(&key)?;
-        let mut peers = PEERS.write().unwrap();
-
-        peers.insert(
-            domain.clone(),
-            crate::Peer {
-                peer: Box::new(HttpPeer::new(
-                    format!("127.0.0.1:{port}"),
-                    false,
-                    String::new(),
-                )),
-                provisioning: crate::SSLProvisioning::Provisioned(cert, key),
-            },
-        );
-    } else {
-        let mut peers = PEERS.write().unwrap();
-
-        peers.insert(
-            domain,
-            crate::Peer {
-                peer: Box::new(HttpPeer::new(
-                    format!("127.0.0.1:{port}"),
-                    false,
-                    String::new(),
-                )),
-                provisioning: crate::SSLProvisioning::NotProvisioned,
-            },
-        );
-    }
-
-    Ok(())
-}
-
 struct CertSolver {}
 
 #[async_trait::async_trait]
@@ -135,11 +98,11 @@ impl pingora::listeners::TlsAccept for CertSolver {
         let name = ssl.servername(NameType::HOST_NAME);
         if let Some(name) = name {
             let peer = 'b: {
-                let peers = PEERS.read().unwrap();
+                let peers = DOMAIN_MAPPING.read().unwrap();
                 let peer = peers.get(name);
                 if let Some(peer) = peer {
-                    if let SSLProvisioning::Provisioned(cert, key) = &peer.provisioning {
-                        break 'b Some((cert.clone(), key.clone()));
+                    if let SSLProvisioning::Provisioned(data) = &peer.ssl_provision {
+                        break 'b Some((data.cert.clone(), data.key.clone()));
                     }
                 }
                 None
