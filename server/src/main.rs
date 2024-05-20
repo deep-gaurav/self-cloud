@@ -1,7 +1,8 @@
 use std::{collections::HashMap, sync::RwLock};
 
-use gateway::Gateway;
+use gateway::{add_peer, Gateway};
 use leptos_service::LeptosService;
+use openssl::pkey::Private;
 use pingora::{
     server::{configuration::Opt, Server},
     upstreams::peer::HttpPeer,
@@ -32,7 +33,10 @@ pub struct Peer {
 pub enum SSLProvisioning {
     NotProvisioned,
     Provisioning,
-    Provisioned(String, String),
+    Provisioned(
+        pingora::tls::x509::X509,
+        pingora::tls::pkey::PKey<pingora::tls::pkey::Private>,
+    ),
 }
 
 impl SSLProvisioning {
@@ -55,13 +59,6 @@ impl SSLProvisioning {
 
 pub static PEERS: Lazy<RwLock<HashMap<String, Peer>>> = Lazy::new(|| {
     let mut peers = HashMap::new();
-    peers.insert(
-        "cloud.deepwith.in".to_string(),
-        Peer {
-            peer: Box::new(HttpPeer::new("127.0.0.1:3000", false, String::new())),
-            provisioning: SSLProvisioning::NotProvisioned,
-        },
-    );
     RwLock::new(peers)
 });
 

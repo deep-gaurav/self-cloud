@@ -203,15 +203,32 @@ pub async fn tls_generator(acme: TLSState) -> anyhow::Result<()> {
                 tokio::fs::create_dir_all(format!("certificates/{}", domain))
                     .await
                     .unwrap();
-                tokio::fs::write(format!("certificates/{}/cert.pem", domain), cert_chain_pem)
-                    .await
-                    .expect("cant write cert");
+                tokio::fs::write(
+                    format!("certificates/{}/cert.pem", domain),
+                    cert_chain_pem.clone(),
+                )
+                .await
+                .expect("cant write cert");
                 tokio::fs::write(
                     format!("certificates/{}/key.pem", domain),
                     kp.serialize_pem(),
                 )
                 .await
                 .expect("cant write key");
+
+                {
+                    let mut peers = PEERS.write().unwrap();
+                    if let Some(peer) = peers.get_mut(&domain) {
+                        let cert = pingora::tls::x509::X509::from_pem(cert_chain_pem.as_bytes());
+                        let key = pingora::tls::pkey::PKey::private_key_from_pem(
+                            kp.serialize_pem().as_bytes(),
+                        );
+
+                        if let (Ok(cert), Ok(key)) = (cert, key) {
+                            peer.provisioning = SSLProvisioning::Provisioned(cert, key);
+                        }
+                    }
+                };
             }
         });
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;

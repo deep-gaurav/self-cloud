@@ -24,6 +24,7 @@ use pingora::{
 
 use crate::{
     fileserv::file_and_error_handler,
+    gateway::add_peer,
     tls_gen::{acme_handler, tls_generator, TLSState},
     PEERS,
 };
@@ -89,6 +90,22 @@ async fn run_main() {
     // `axum::Server` is a re-export of `hyper::Server`
     tracing::info!("listening on http://{}", &addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+
+    if let Err(err) = add_peer("cloud.deepwith.in".to_string(), 3000).await {
+        tracing::error!("cant add cloud.deepwith.in");
+        return;
+    }
+
+    if let Err(err) = add_peer("admin.cloud.deepwith.in".to_string(), 3000).await {
+        tracing::error!("cant add admin.cloud.deepwith.in");
+        return;
+    }
+
+    if let Err(err) = add_peer("p9000.cloud.deepwith.in".to_string(), 9000).await {
+        tracing::error!("cant add p9000.cloud.deepwith.in");
+        return;
+    }
+
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
