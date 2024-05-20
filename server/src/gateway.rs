@@ -8,6 +8,7 @@ use pingora::{
     upstreams::peer::HttpPeer,
     Error, Result,
 };
+use tracing::info;
 
 pub struct Gateway {
     provisioning_gateway: Box<HttpPeer>,
@@ -53,6 +54,11 @@ impl ProxyHttp for Gateway {
         session: &mut Session,
         ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
+        info!(
+            "IP: {:?}\nHanding request\n{}",
+            session.client_addr(),
+            session.request_summary()
+        );
         fn get_host(session: &mut Session) -> String {
             if let Some(host) = session.get_header(header::HOST) {
                 if let Ok(host_str) = host.to_str() {
@@ -67,16 +73,20 @@ impl ProxyHttp for Gateway {
             "".to_string()
         }
 
-        match session.read_request().await {
-            Ok(is_read) => {
-                // tracing::error!("Request read {is_read}");
-            }
-            Err(err) => {
-                tracing::error!("Cant read request {err:?}");
-            }
-        };
+        // tracing::debug!("Read request");
+        // match session.read_request().await {
+        //     Ok(is_read) => {
+        //         tracing::debug!("Request read {is_read}");
+        //     }
+        //     Err(err) => {
+        //         tracing::error!("Cant read request {err:?}");
+        //     }
+        // };
 
+        tracing::debug!("Get host");
         let host = get_host(session);
+        tracing::debug!("Received host {host}");
+
         let peers = 'pe: {
             let peers = DOMAIN_MAPPING.read().unwrap();
             if let Some(peer) = peers.get(&host) {

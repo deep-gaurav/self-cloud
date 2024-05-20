@@ -20,13 +20,22 @@ mod tls_gen;
 // main.rs
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
 fn main() {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::DEBUG.into())
+                .from_env_lossy(),
+        )
+        .init();
 
     let opt = Some(Opt::from_args());
     let mut my_server = Server::new(opt).unwrap();

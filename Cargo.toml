@@ -10,7 +10,7 @@ opt-level = 'z'
 
 [workspace.dependencies]
 tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-subscriber-wasm = "0.1.0"
 
 
