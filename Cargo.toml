@@ -25,7 +25,7 @@ leptos_meta = { version = "0.6" }
 leptos_router = { version = "0.6" }
 leptos_axum = { version = "0.6" }
 
-axum = "0.7"
+axum = { version = "0.7", features = ["macros"] }
 cfg-if = "1"
 console_error_panic_hook = "0.1.7"
 console_log = "1"
@@ -41,6 +41,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 anyhow = "1"
+
+rcgen = "0.13.1"
+
+openssl = { version = "0.10.64", features = ["vendored"] }
 
 # See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
 
@@ -124,3 +128,6 @@ tailwind-input-file = "style/tailwind.css"
 # Optional, defaults to "tailwind.config.js" which if is not present
 # is generated for you
 tailwind-config-file = "tailwind.config.js"
+
+
+bin-target-triple = "x86_64-unknown-linux-musl"

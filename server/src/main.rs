@@ -16,6 +16,14 @@ mod gateway;
 mod leptos_service;
 mod tls_gen;
 
+// main.rs
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 pub struct Peer {
     peer: Box<HttpPeer>,
     provisioning: SSLProvisioning,
@@ -23,6 +31,7 @@ pub struct Peer {
 
 pub enum SSLProvisioning {
     NotProvisioned,
+    Provisioning,
     Provisioned(String, String),
 }
 
@@ -34,9 +43,27 @@ impl SSLProvisioning {
     pub fn is_not_provisioned(&self) -> bool {
         matches!(self, Self::NotProvisioned)
     }
+
+    /// Returns `true` if the sslprovisioning is [`Provisioning`].
+    ///
+    /// [`Provisioning`]: SSLProvisioning::Provisioning
+    #[must_use]
+    pub fn is_provisioning(&self) -> bool {
+        matches!(self, Self::Provisioning)
+    }
 }
 
-pub static PEERS: Lazy<RwLock<HashMap<String, Peer>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+pub static PEERS: Lazy<RwLock<HashMap<String, Peer>>> = Lazy::new(|| {
+    let mut peers = HashMap::new();
+    peers.insert(
+        "cloud.deepwith.in".to_string(),
+        Peer {
+            peer: Box::new(HttpPeer::new("127.0.0.1:3000", false, String::new())),
+            provisioning: SSLProvisioning::NotProvisioned,
+        },
+    );
+    RwLock::new(peers)
+});
 
 fn main() {
     tracing_subscriber::fmt::init();

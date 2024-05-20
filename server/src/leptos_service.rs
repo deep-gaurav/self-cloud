@@ -1,7 +1,19 @@
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
+
 use app::App;
-use axum::Router;
-use leptos::get_configuration;
+use axum::response::{IntoResponse, Response};
+use axum::{body::Body as AxumBody, Router};
+use axum::{
+    extract::{FromRef, Request, State},
+    routing::get,
+};
+use leptos::{get_configuration, LeptosOptions};
 use leptos_axum::{generate_route_list, LeptosRoutes};
+use leptos_router::RouteListing;
+
 use pingora::{
     server::ShutdownWatch,
     services::{
@@ -10,7 +22,11 @@ use pingora::{
     },
 };
 
-use crate::{fileserv::file_and_error_handler, PEERS};
+use crate::{
+    fileserv::file_and_error_handler,
+    tls_gen::{acme_handler, tls_generator, TLSState},
+    PEERS,
+};
 
 pub struct LeptosService {}
 
@@ -27,6 +43,13 @@ impl BackgroundService for LeptosService {
     }
 }
 
+#[derive(FromRef, Clone)]
+pub struct AppState {
+    leptos_options: LeptosOptions,
+    routes: Vec<RouteListing>,
+    pub tls_state: TLSState,
+}
+
 async fn run_main() {
     // Setting get_configuration(None) means we'll be using cargo-leptos's env values
     // For deployment these variables are:
@@ -38,12 +61,29 @@ async fn run_main() {
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
 
+    let acme: TLSState = Arc::new(RwLock::new(HashMap::new()));
+
+    let acme_c = acme.clone();
+    tokio::spawn(async move {
+        if let Err(err) = tls_generator(acme_c).await {
+            tracing::error!("TLs Generator erroed {err:#?}");
+        }
+    });
+
+    let addr = leptos_options.site_addr;
+    let routes = generate_route_list(App);
+    let app_state = AppState {
+        routes: routes.clone(),
+        leptos_options,
+        tls_state: acme,
+    };
+
     // build our application with a route
     let app = Router::new()
-        // .route("/.well-known/acme-challenge/<TOKEN>", method_router)
-        .leptos_routes(&leptos_options, routes, App)
+        .leptos_routes_with_handler(routes, get(leptos_routes_handler))
+        .route("/.well-known/acme-challenge/:token", get(acme_handler))
         .fallback(file_and_error_handler)
-        .with_state(leptos_options);
+        .with_state(app_state);
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
@@ -52,4 +92,34 @@ async fn run_main() {
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
+}
+
+async fn leptos_routes_handler(
+    State(app_state): State<AppState>,
+    // auth_session: AuthSession,
+    // path: Path<String>,
+    // cookies: Cookies,
+    request: Request<AxumBody>,
+) -> Response {
+    // info!("Handling request {:?}", request.uri());
+    // let auth = if let Some(cookie) = cookies.get("sessionId") {
+    //     if let Ok(user) = get_user_from_cookie(cookie) {
+    //         AuthType::Authorized(user)
+    //     } else {
+    //         AuthType::UnAuthorized
+    //     }
+    // } else {
+    //     AuthType::UnAuthorized
+    // };
+
+    let handler = leptos_axum::render_route_with_context(
+        app_state.leptos_options.clone(),
+        app_state.routes.clone(),
+        move || {
+            // provide_context(auth.clone());
+            // provide_context(app_state.otp_map.clone());
+        },
+        App,
+    );
+    handler(request).await.into_response()
 }

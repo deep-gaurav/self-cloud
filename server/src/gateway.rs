@@ -15,7 +15,7 @@ pub struct Gateway {
 
 impl Gateway {
     pub fn to_service(server: &Server) -> Service<HttpProxy<Self>> {
-        let provisioning_gateway = Box::new(HttpPeer::new("127.0.0.0:3000", false, String::new()));
+        let provisioning_gateway = Box::new(HttpPeer::new("127.0.0.1:3000", false, String::new()));
         let service = Self {
             provisioning_gateway,
         };
@@ -56,6 +56,12 @@ impl ProxyHttp for Gateway {
             if let Some(peer) = peers.get(host) {
                 match peer.provisioning {
                     crate::SSLProvisioning::NotProvisioned => {
+                        return Err(pingora::Error::explain(
+                            pingora::ErrorType::InternalError,
+                            "TLS Provisioning not started",
+                        ))
+                    }
+                    crate::SSLProvisioning::Provisioning => {
                         break 'pe self.provisioning_gateway.clone()
                     }
                     crate::SSLProvisioning::Provisioned(_, _) => break 'pe peer.peer.clone(),
