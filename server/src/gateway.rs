@@ -53,17 +53,33 @@ impl ProxyHttp for Gateway {
         session: &mut Session,
         ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
-        let Some(host) = session.get_header(header::HOST) else {
-            return Err(Error::new(pingora::ErrorType::Custom(
-                "host header missing",
-            )));
+        fn get_host(session: &mut Session) -> String {
+            if let Some(host) = session.get_header(header::HOST) {
+                if let Ok(host_str) = host.to_str() {
+                    return host_str.to_string();
+                }
+            }
+
+            if let Some(host) = session.req_header().uri.host() {
+                return host.to_string();
+            }
+
+            "".to_string()
+        }
+
+        match session.read_request().await {
+            Ok(is_read) => {
+                // tracing::error!("Request read {is_read}");
+            }
+            Err(err) => {
+                tracing::error!("Cant read request {err:?}");
+            }
         };
-        let host = host.to_str().map_err(|e| {
-            pingora::Error::because(pingora::ErrorType::InternalError, "host not str", e)
-        })?;
+
+        let host = get_host(session);
         let peers = 'pe: {
             let peers = DOMAIN_MAPPING.read().unwrap();
-            if let Some(peer) = peers.get(host) {
+            if let Some(peer) = peers.get(&host) {
                 match peer.ssl_provision {
                     SSLProvisioning::NotProvisioned => {
                         return Err(pingora::Error::explain(
