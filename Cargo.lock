@@ -94,8 +94,10 @@ dependencies = [
  "leptos_router",
  "once_cell",
  "pingora",
+ "serde",
  "thiserror",
  "tokio",
+ "tracing",
  "uuid",
 ]
 

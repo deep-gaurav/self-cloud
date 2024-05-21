@@ -22,6 +22,8 @@ tokio = { workspace = true, optional = true }
 
 anyhow.workspace = true
 
+serde.workspace = true
+tracing.workspace = true
 
 [features]
 default = []

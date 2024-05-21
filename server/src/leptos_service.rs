@@ -14,7 +14,7 @@ use axum::{
     routing::get,
 };
 use leptos::{get_configuration, LeptosOptions};
-use leptos_axum::{generate_route_list, LeptosRoutes};
+use leptos_axum::{generate_route_list, handle_server_fns_with_context, LeptosRoutes};
 use leptos_router::RouteListing;
 
 use pingora::{
@@ -80,12 +80,23 @@ async fn run_main() {
         tls_state: acme,
     };
 
+    let compression = tower_http::compression::CompressionLayer::new()
+        .gzip(true)
+        .br(true)
+        .zstd(true)
+        .deflate(true);
+
     // build our application with a route
     let app = Router::new()
+        .route(
+            "/api/*fn_name",
+            get(server_fn_handler).post(server_fn_handler),
+        )
         .leptos_routes_with_handler(routes, get(leptos_routes_handler))
         .route("/.well-known/acme-challenge/:token", get(acme_handler))
         .fallback(file_and_error_handler)
-        .with_state(app_state);
+        .with_state(app_state)
+        .layer(compression);
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
@@ -137,4 +148,34 @@ async fn leptos_routes_handler(
         App,
     );
     handler(request).await.into_response()
+}
+
+#[axum::debug_handler]
+async fn server_fn_handler(
+    State(app_state): State<AppState>,
+    // auth_session: AuthSession,
+    // path: Path<String>,
+    // cookies: Cookies,
+    request: Request<AxumBody>,
+) -> impl IntoResponse {
+    // log!("{:?}", path);
+    // let auth = if let Some(cookie) = cookies.get("sessionId") {
+    //     if let Ok(user) = get_user_from_cookie(cookie) {
+    //         AuthType::Authorized(user)
+    //     } else {
+    //         AuthType::UnAuthorized
+    //     }
+    // } else {
+    //     AuthType::UnAuthorized
+    // };
+
+    handle_server_fns_with_context(
+        move || {
+            // provide_context(auth.clone());
+            // provide_context(auth_session.clone());
+            // provide_context(app_state.otp_map.clone());
+        },
+        request,
+    )
+    .await
 }

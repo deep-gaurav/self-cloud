@@ -1,14 +1,52 @@
 use std::sync::{Arc, Weak};
 
+use leptos::server;
+use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 
+#[derive(Serialize, Clone)]
 pub struct Project {
     pub id: Uuid,
     pub port: u32,
     pub name: String,
 
     #[cfg(feature = "ssr")]
+    #[serde(skip)]
     pub peer: Box<pingora::upstreams::peer::HttpPeer>,
+}
+
+#[cfg(not(feature = "ssr"))]
+#[derive(Deserialize)]
+struct ProjectFields {
+    pub id: Uuid,
+    pub port: u32,
+    pub name: String,
+}
+
+impl<'de> Deserialize<'de> for Project {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[cfg(not(feature = "ssr"))]
+        {
+            let fields = ProjectFields::deserialize(deserializer)?;
+            Ok(Project {
+                id: fields.id,
+                port: fields.port,
+                name: fields.name,
+                #[cfg(feature = "ssr")]
+                peer: unimplemented!(),
+            })
+        }
+
+        #[cfg(feature = "ssr")]
+        {
+            Err(serde::de::Error::custom(
+                "Deserialization is not supported with the 'ssr' feature enabled",
+            ))
+        }
+    }
 }
 
 pub enum SSLProvisioning {
