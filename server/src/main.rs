@@ -32,7 +32,7 @@ fn main() {
         .with(fmt::layer())
         .with(
             EnvFilter::builder()
-                .with_default_directive(LevelFilter::DEBUG.into())
+                .with_default_directive(LevelFilter::INFO.into())
                 .from_env_lossy(),
         )
         .init();
