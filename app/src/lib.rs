@@ -12,6 +12,8 @@ use leptos_meta::*;
 use leptos_router::*;
 use tracing::info;
 
+use crate::auth::Login;
+
 pub mod api;
 pub mod auth;
 pub mod common;
@@ -22,6 +24,8 @@ pub mod pages;
 pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
+
+    let login = create_server_action::<Login>();
 
     view! {
         <Stylesheet id="leptos" href="/pkg/start-axum-workspace.css"/>
@@ -38,14 +42,14 @@ pub fn App() -> impl IntoView {
 
             <main class="h-full w-full">
                 <Routes>
-                    <Route ssr=SsrMode::PartiallyBlocked path="" view=|| view! {
-                        <AuthCheck is_auth_required=false />
+                    <Route ssr=SsrMode::PartiallyBlocked path="" view= move || view! {
+                        <AuthCheck login=login is_auth_required=false />
                     } >
-                        <Route path="" view=HomePage/>
+                        <Route path="" view=move|| view!{ <HomePage login=login />}/>
                     </Route>
 
-                    <Route ssr=SsrMode::PartiallyBlocked path="dashboard" view=|| view! {
-                        <AuthCheck is_auth_required=true />
+                    <Route ssr=SsrMode::PartiallyBlocked path="dashboard" view=move || view! {
+                        <AuthCheck login=login is_auth_required=true />
                     } >
                         <Route path="" view=Dashboard/>
                     </Route>
@@ -56,14 +60,21 @@ pub fn App() -> impl IntoView {
 }
 
 #[component]
-pub fn AuthCheck(is_auth_required: bool) -> impl IntoView {
+pub fn AuthCheck(
+    is_auth_required: bool,
+    login: Action<Login, Result<(), ServerFnError>>,
+) -> impl IntoView {
     let auth = create_blocking_resource(
-        || (),
+        move || {
+            login.version().get();
+        },
         move |_| async {
             let result = get_auth().await;
             result.unwrap_or(AuthType::UnAuthorized)
         },
     );
+
+    provide_context(auth);
 
     view! {
         <Suspense

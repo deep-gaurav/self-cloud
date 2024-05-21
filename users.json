@@ -1,0 +1,10 @@
+{
+    "admin@deepwith.in": {
+        "user": {
+            "id": "ac647619-11a8-4e95-9854-d4de9b99604f",
+            "name": "Admin",
+            "email": "admin@deepwith.in"
+        },
+        "pass": "password"
+    }
+}

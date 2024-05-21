@@ -4,7 +4,7 @@ use std::{
 };
 
 use app::{
-    auth::AuthType,
+    auth::{server::get_user_from_cookie, AuthType, AuthorizedUsers},
     common::{add_project, add_project_domain},
     App,
 };
@@ -28,7 +28,7 @@ use pingora::{
 use tower_cookies::{CookieManager, CookieManagerLayer, Cookies};
 
 use crate::{
-    auth::get_user_from_cookie,
+    auth::get_authorized_users,
     fileserv::file_and_error_handler,
     tls_gen::{acme_handler, tls_generator, TLSState},
 };
@@ -53,6 +53,7 @@ pub struct AppState {
     leptos_options: LeptosOptions,
     routes: Vec<RouteListing>,
     pub tls_state: TLSState,
+    pub authorized_users: AuthorizedUsers,
 }
 
 async fn run_main() {
@@ -77,10 +78,19 @@ async fn run_main() {
 
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
+    let users = match get_authorized_users().await {
+        Ok(users) => users,
+        Err(err) => {
+            tracing::error!("Cant get authorized users");
+            return;
+        }
+    };
+
     let app_state = AppState {
         routes: routes.clone(),
         leptos_options,
         tls_state: acme,
+        authorized_users: users,
     };
 
     let compression = tower_http::compression::CompressionLayer::new()
@@ -176,7 +186,8 @@ async fn server_fn_handler(
     handle_server_fns_with_context(
         move || {
             provide_context(auth.clone());
-            // provide_context(auth_session.clone());
+            provide_context(app_state.authorized_users.clone());
+            provide_context(cookies.clone());
             // provide_context(app_state.otp_map.clone());
         },
         request,
