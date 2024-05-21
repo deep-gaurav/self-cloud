@@ -12,6 +12,7 @@ use once_cell::sync::Lazy;
 use structopt::StructOpt;
 // mod proxy;
 
+mod auth;
 mod fileserv;
 mod gateway;
 mod leptos_service;

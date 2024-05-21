@@ -4,6 +4,7 @@ use std::{
 };
 
 use app::{
+    auth::AuthType,
     common::{add_project, add_project_domain},
     App,
 };
@@ -13,7 +14,7 @@ use axum::{
     extract::{FromRef, Request, State},
     routing::get,
 };
-use leptos::{get_configuration, LeptosOptions};
+use leptos::{get_configuration, provide_context, LeptosOptions};
 use leptos_axum::{generate_route_list, handle_server_fns_with_context, LeptosRoutes};
 use leptos_router::RouteListing;
 
@@ -24,8 +25,10 @@ use pingora::{
         listening::Service,
     },
 };
+use tower_cookies::{CookieManager, CookieManagerLayer, Cookies};
 
 use crate::{
+    auth::get_user_from_cookie,
     fileserv::file_and_error_handler,
     tls_gen::{acme_handler, tls_generator, TLSState},
 };
@@ -96,7 +99,8 @@ async fn run_main() {
         .route("/.well-known/acme-challenge/:token", get(acme_handler))
         .fallback(file_and_error_handler)
         .with_state(app_state)
-        .layer(compression);
+        .layer(compression)
+        .layer(CookieManagerLayer::new());
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
@@ -124,25 +128,25 @@ async fn leptos_routes_handler(
     State(app_state): State<AppState>,
     // auth_session: AuthSession,
     // path: Path<String>,
-    // cookies: Cookies,
+    cookies: Cookies,
     request: Request<AxumBody>,
 ) -> Response {
     // info!("Handling request {:?}", request.uri());
-    // let auth = if let Some(cookie) = cookies.get("sessionId") {
-    //     if let Ok(user) = get_user_from_cookie(cookie) {
-    //         AuthType::Authorized(user)
-    //     } else {
-    //         AuthType::UnAuthorized
-    //     }
-    // } else {
-    //     AuthType::UnAuthorized
-    // };
+    let auth = if let Some(cookie) = cookies.get("sessionId") {
+        if let Ok(user) = get_user_from_cookie(cookie) {
+            AuthType::Authorized(user)
+        } else {
+            AuthType::UnAuthorized
+        }
+    } else {
+        AuthType::UnAuthorized
+    };
 
     let handler = leptos_axum::render_route_with_context(
         app_state.leptos_options.clone(),
         app_state.routes.clone(),
         move || {
-            // provide_context(auth.clone());
+            provide_context(auth.clone());
             // provide_context(app_state.otp_map.clone());
         },
         App,
@@ -155,23 +159,23 @@ async fn server_fn_handler(
     State(app_state): State<AppState>,
     // auth_session: AuthSession,
     // path: Path<String>,
-    // cookies: Cookies,
+    cookies: Cookies,
     request: Request<AxumBody>,
 ) -> impl IntoResponse {
     // log!("{:?}", path);
-    // let auth = if let Some(cookie) = cookies.get("sessionId") {
-    //     if let Ok(user) = get_user_from_cookie(cookie) {
-    //         AuthType::Authorized(user)
-    //     } else {
-    //         AuthType::UnAuthorized
-    //     }
-    // } else {
-    //     AuthType::UnAuthorized
-    // };
+    let auth = if let Some(cookie) = cookies.get("sessionId") {
+        if let Ok(user) = get_user_from_cookie(cookie) {
+            AuthType::Authorized(user)
+        } else {
+            AuthType::UnAuthorized
+        }
+    } else {
+        AuthType::UnAuthorized
+    };
 
     handle_server_fns_with_context(
         move || {
-            // provide_context(auth.clone());
+            provide_context(auth.clone());
             // provide_context(auth_session.clone());
             // provide_context(app_state.otp_map.clone());
         },

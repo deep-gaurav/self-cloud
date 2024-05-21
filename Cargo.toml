@@ -1,3 +1,5 @@
+cargo-features = ["codegen-backend"]
+
 [workspace]
 resolver = "2"
 members = ["app", "frontend", "server"]
@@ -7,6 +9,16 @@ members = ["app", "frontend", "server"]
 codegen-units = 1
 lto = true
 opt-level = 'z'
+strip = true
+
+[profile.dev]
+# codegen-backend = "cranelift"
+
+[profile.binrelease]
+inherits = "release"
+lto = "thin"
+opt-level = 3
+codegen-units = 256
 
 [workspace.dependencies]
 tracing = "0.1.40"
@@ -47,6 +59,17 @@ anyhow = "1"
 rcgen = "0.13.1"
 
 openssl = { version = "0.10.64", features = ["vendored"] }
+
+tower-cookies = { version = "0.10.0" }
+
+aes-gcm-siv = { version = "0.11.1" }
+rand = "0.8.5"
+
+bincode = { version = "1" }
+base64 = { version = "0.22.1" }
+
+time = { version = "0.3" }
+
 
 # See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
 
@@ -132,4 +155,7 @@ tailwind-input-file = "style/tailwind.css"
 tailwind-config-file = "tailwind.config.js"
 
 
-bin-target-triple = "x86_64-unknown-linux-musl"
+# bin-target-triple = "x86_64-unknown-linux-musl"
+
+
+bin-profile-release = "binrelease"

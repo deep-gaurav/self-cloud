@@ -1,7 +1,11 @@
 use crate::{
     api::get_projects,
+    auth::{get_auth, AuthType},
     error_template::{AppError, ErrorTemplate},
 };
+
+use crate::pages::dashboard::Dashboard;
+use crate::pages::home::HomePage;
 
 use leptos::*;
 use leptos_meta::*;
@@ -9,8 +13,10 @@ use leptos_router::*;
 use tracing::info;
 
 pub mod api;
+pub mod auth;
 pub mod common;
 pub mod error_template;
+pub mod pages;
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -29,43 +35,70 @@ pub fn App() -> impl IntoView {
             outside_errors.insert_with_default_key(AppError::NotFound);
             view! { <ErrorTemplate outside_errors/> }.into_view()
         }>
-            <main>
+
+            <main class="h-full w-full">
                 <Routes>
-                    <Route path="" view=HomePage/>
+                    <Route ssr=SsrMode::PartiallyBlocked path="" view=|| view! {
+                        <AuthCheck is_auth_required=false />
+                    } >
+                        <Route path="" view=HomePage/>
+                    </Route>
+
+                    <Route ssr=SsrMode::PartiallyBlocked path="dashboard" view=|| view! {
+                        <AuthCheck is_auth_required=true />
+                    } >
+                        <Route path="" view=Dashboard/>
+                    </Route>
                 </Routes>
             </main>
         </Router>
     }
 }
 
-/// Renders the home page of your application.
 #[component]
-fn HomePage() -> impl IntoView {
-    let projects = create_resource(
+pub fn AuthCheck(is_auth_required: bool) -> impl IntoView {
+    let auth = create_blocking_resource(
         || (),
         move |_| async {
-            let result = get_projects().await;
-            result.unwrap_or_default()
+            let result = get_auth().await;
+            result.unwrap_or(AuthType::UnAuthorized)
         },
     );
 
     view! {
-        <h1 class="text-4xl">"Projects"</h1>
-
-        <Suspense>
+        <Suspense
+            fallback=move || view! { <p>"Loading..."</p> }
+        >
             {
-                move || projects.get().unwrap_or_default().into_iter().map(
-                    |p| view! {
-                        <div class="p-2">
-                            <div class="w-full shadow-md rounded-md p-4">
-                                <div class="text-xl"> {p.name} </div>
-                                <div class="text-slate-600 text-sm"> {p.id.to_string()} </div>
-                                <div class="h-2" />
-                                <div > "Port: " {p.port} </div>
-                            </div>
-                        </div>
+                let user = auth.get().unwrap_or(AuthType::UnAuthorized);
+                if auth.loading().get() {
+                    view!{}.into_view()
+                }else{
+                    match user {
+                        AuthType::UnAuthorized => {
+                            if is_auth_required {
+                                view!{
+                                    <Redirect path="/" />
+                                }.into_view()
+                            } else {
+                                view!{
+                                    <Outlet/>
+                                }.into_view()
+                            }
+                        },
+                        AuthType::Authorized(_) => {
+                            if !is_auth_required {
+                                view!{
+                                    <Redirect path="/dashboard" />
+                                }.into_view()
+                            } else {
+                                view!{
+                                    <Outlet/>
+                                }.into_view()
+                            }
+                        },
                     }
-                ).collect::<Vec<_>>()
+                }
             }
         </Suspense>
     }
