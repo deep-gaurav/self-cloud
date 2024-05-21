@@ -61,6 +61,7 @@ pub async fn login(email: String, password: String) -> Result<(), ServerFnError>
         if user.pass == password {
             let cookie = get_encrypted_user_cookie(&user.user).unwrap();
             cookies.add(cookie);
+            leptos_axum::redirect("/dashboard");
             Ok(())
         } else {
             Err(ServerFnError::new("UnAuthorized"))
