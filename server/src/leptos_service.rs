@@ -125,7 +125,12 @@ async fn run_main(tls_state: TLSState) {
     // `axum::Server` is a re-export of `hyper::Server`
     tracing::info!("listening on http://{}", &addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let listener = loop {
+        if let Ok(bind) = tokio::net::TcpListener::bind(addr).await {
+            break bind;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    };
 
     tracing::info!("Adding project");
     let project = match add_project("cloud-panel", 3000).await {
