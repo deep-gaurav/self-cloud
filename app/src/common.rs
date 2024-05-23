@@ -64,6 +64,14 @@ impl SSLProvisioning {
     pub fn is_not_provisioned(&self) -> bool {
         matches!(self, Self::NotProvisioned)
     }
+
+    /// Returns `true` if the sslprovisioning is [`Provisioned`].
+    ///
+    /// [`Provisioned`]: SSLProvisioning::Provisioned
+    #[must_use]
+    pub fn is_provisioned(&self) -> bool {
+        matches!(self, Self::Provisioned(..))
+    }
 }
 
 #[cfg(feature = "ssr")]

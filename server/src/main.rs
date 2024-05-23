@@ -21,6 +21,7 @@ mod tls_gen;
 // main.rs
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
+use tls_gen::{TLSGenService, TLSState};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -41,11 +42,14 @@ fn main() {
     let opt = Some(Opt::from_args());
     let mut my_server = Server::new(opt).unwrap();
 
-    let leptos_service = LeptosService::to_service();
+    let tls_state = TLSState::new(RwLock::new(HashMap::new()));
 
+    let leptos_service = LeptosService::to_service(tls_state.clone());
+    let tls_gen_service = TLSGenService::to_service(tls_state);
     let proxy_service = Gateway::to_service(&my_server);
     my_server.add_service(leptos_service);
     my_server.add_service(proxy_service);
+    my_server.add_service(tls_gen_service);
 
     my_server.bootstrap();
     my_server.run_forever()

@@ -26,25 +26,35 @@ use pingora::{
     },
 };
 use tower_cookies::{CookieManager, CookieManagerLayer, Cookies};
+use tracing::info;
 
 use crate::{
     auth::get_authorized_users,
     fileserv::file_and_error_handler,
-    tls_gen::{acme_handler, tls_generator, TLSState},
+    tls_gen::{acme_handler, TLSState},
 };
 
-pub struct LeptosService {}
+pub struct LeptosService {
+    tls_state: TLSState,
+}
 
 impl LeptosService {
-    pub fn to_service() -> GenBackgroundService<Self> {
-        background_service("leptos_service", Self {})
+    pub fn to_service(tls_state: TLSState) -> GenBackgroundService<Self> {
+        background_service("leptos_service", Self { tls_state })
     }
 }
 
 #[async_trait::async_trait]
 impl BackgroundService for LeptosService {
     async fn start(&self, mut shutdown: ShutdownWatch) {
-        run_main().await
+        tokio::select! {
+            _ = shutdown.changed() => {
+                info!("Shutdown received");
+            }
+            _ = run_main(self.tls_state.clone()) => {
+                info!("Leptos ended");
+            }
+        };
     }
 }
 
@@ -56,7 +66,7 @@ pub struct AppState {
     pub authorized_users: AuthorizedUsers,
 }
 
-async fn run_main() {
+async fn run_main(tls_state: TLSState) {
     // Setting get_configuration(None) means we'll be using cargo-leptos's env values
     // For deployment these variables are:
     // <https://github.com/leptos-rs/start-axum#executing-a-server-on-a-remote-machine-without-the-toolchain>
@@ -68,17 +78,6 @@ async fn run_main() {
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
-
-    let acme: TLSState = Arc::new(RwLock::new(HashMap::new()));
-
-    let acme_c = acme.clone();
-
-    tracing::info!("Starting TLS Generator");
-    tokio::spawn(async move {
-        if let Err(err) = tls_generator(acme_c).await {
-            tracing::error!("TLs Generator erroed {err:#?}");
-        }
-    });
 
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
@@ -99,7 +98,7 @@ async fn run_main() {
     let app_state = AppState {
         routes: routes.clone(),
         leptos_options,
-        tls_state: acme,
+        tls_state,
         authorized_users: users,
     };
 

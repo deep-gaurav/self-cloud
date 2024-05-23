@@ -3289,6 +3289,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bincode",
+ "http 1.1.0",
  "instant-acme",
  "leptos",
  "leptos_axum",

@@ -1,7 +1,8 @@
 use app::common::{DomainStatus, SSLProvisioning, DOMAIN_MAPPING};
-use axum::http::header;
+use axum::{body::Bytes, http::header};
 use openssl::ssl::NameType;
 use pingora::{
+    http::ResponseHeader,
     protocols::ssl::digest,
     proxy::{http_proxy_service_with_name, HttpProxy, ProxyHttp, Session},
     server::Server,
@@ -9,7 +10,7 @@ use pingora::{
     upstreams::peer::HttpPeer,
     Error, Result,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 pub struct Gateway {
     provisioning_gateway: Box<HttpPeer>,
@@ -51,9 +52,10 @@ impl Gateway {
 
 pub struct GatewayContext {
     domain: Option<DomainStatus>,
+    host: String,
 }
 
-fn get_session_domain(session: &mut Session) -> Option<DomainStatus> {
+fn get_session_domain(session: &mut Session) -> (String, Option<DomainStatus>) {
     fn get_host(session: &mut Session) -> String {
         if let Some(host) = session.get_header(header::HOST) {
             if let Ok(host_str) = host.to_str() {
@@ -71,7 +73,7 @@ fn get_session_domain(session: &mut Session) -> Option<DomainStatus> {
     let host = get_host(session);
 
     let peers = DOMAIN_MAPPING.read().unwrap();
-    peers.get(&host).cloned()
+    (host.clone(), peers.get(&host).cloned())
 }
 
 #[async_trait::async_trait]
@@ -81,7 +83,10 @@ impl ProxyHttp for Gateway {
 
     /// Define how the `ctx` should be created.
     fn new_ctx(&self) -> Self::CTX {
-        GatewayContext { domain: None }
+        GatewayContext {
+            domain: None,
+            host: String::new(),
+        }
     }
 
     async fn request_filter(&self, _session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool>
@@ -89,10 +94,70 @@ impl ProxyHttp for Gateway {
         Self::CTX: Send + Sync,
     {
         if _ctx.domain.is_none() {
-            _ctx.domain = get_session_domain(_session);
+            (_ctx.host, _ctx.domain) = get_session_domain(_session);
         }
-        let digest = _session.digest();
-        if let Some(digest) = digest {}
+        if let Some(domain) = &_ctx.domain {
+            if domain.ssl_provision.is_provisioned() {
+                let is_tls = _session
+                    .digest()
+                    .map(|d| d.ssl_digest.is_some())
+                    .unwrap_or(false);
+                if !is_tls {
+                    let uri = _session.req_header().uri.clone();
+                    let new_uri = http::uri::Builder::from(uri.clone())
+                        .scheme("https")
+                        .authority(_ctx.host.clone())
+                        .build();
+                    if let Ok(new_uri) = new_uri {
+                        match ResponseHeader::build_no_case(
+                            http::StatusCode::PERMANENT_REDIRECT,
+                            None,
+                        ) {
+                            Ok(mut response) => {
+                                if let Err(err) =
+                                    response.append_header("Location", new_uri.to_string())
+                                {
+                                    warn!("Cant append header {err:?}")
+                                }
+
+                                if let Err(err) =
+                                    response.append_header("Content-Length", 0.to_string())
+                                {
+                                    warn!("Cant append header {err:?}")
+                                }
+
+                                if let Err(err) =
+                                    _session.write_response_header(Box::new(response)).await
+                                {
+                                    warn!("Cant write response header {err:?}")
+                                }
+
+                                if let Err(err) = _session.write_response_body(Bytes::new()).await {
+                                    warn!("Cant write response body {err:?}")
+                                }
+
+                                if let Err(err) = _session.finish_body().await {
+                                    warn!("Cant finish body {err:?}")
+                                }
+
+                                info!("Will redirect to TLS path \n{uri} -> {new_uri}");
+
+                                return Ok(true);
+                            }
+                            Err(err) => warn!("Cant create response {err:?}"),
+                        }
+                    } else {
+                        // info!("Old uri: {uri:?}\nUri not valid {:?}", new_uri);
+                    }
+                } else {
+                    // info!("SSL exist {:?}", _session.digest());
+                }
+            } else {
+                // info!("SSL Not provisioned");
+            }
+        } else {
+            // info!("No domain status");
+        }
         Ok(false)
     }
 
