@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use app::common::{SSLProvisioning, DOMAIN_MAPPING};
+use app::common::{get_home_path, SSLProvisioning, DOMAIN_MAPPING};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -35,7 +35,8 @@ pub async fn acme_handler(
 }
 
 pub async fn tls_generator(acme: TLSState) -> anyhow::Result<()> {
-    let mut account = if let Ok(bytes) = tokio::fs::read("account.json").await {
+    let mut account = if let Ok(bytes) = tokio::fs::read(get_home_path().join("account.json")).await
+    {
         'ba: {
             if let Ok(cred) = serde_json::from_slice::<AccountCredentials>(&bytes) {
                 let account = Account::from_credentials(cred)

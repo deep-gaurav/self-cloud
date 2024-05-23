@@ -49,6 +49,7 @@ impl<'de> Deserialize<'de> for Project {
     }
 }
 
+#[derive(Clone)]
 pub enum SSLProvisioning {
     NotProvisioned,
     Provisioning,
@@ -66,11 +67,13 @@ impl SSLProvisioning {
 }
 
 #[cfg(feature = "ssr")]
+#[derive(Clone)]
 pub struct DomainStatus {
     pub project: Weak<Project>,
     pub ssl_provision: SSLProvisioning,
 }
 
+#[derive(Clone)]
 pub struct SSlData {
     #[cfg(feature = "ssr")]
     pub cert: pingora::tls::x509::X509,
@@ -83,6 +86,7 @@ pub struct SSlData {
 pub static PROJECTS: once_cell::sync::Lazy<
     std::sync::RwLock<std::collections::HashMap<Uuid, std::sync::Arc<Project>>>,
 > = once_cell::sync::Lazy::new(|| {
+    tracing::debug!("Creating new projects list");
     let mut peers = std::collections::HashMap::new();
     std::sync::RwLock::new(peers)
 });
@@ -91,6 +95,7 @@ pub static PROJECTS: once_cell::sync::Lazy<
 pub static DOMAIN_MAPPING: once_cell::sync::Lazy<
     std::sync::RwLock<std::collections::HashMap<String, DomainStatus>>,
 > = once_cell::sync::Lazy::new(|| {
+    tracing::debug!("Creating new domain mapping");
     let mut peers = std::collections::HashMap::new();
     std::sync::RwLock::new(peers)
 });
@@ -118,8 +123,20 @@ pub async fn add_project(name: &str, port: u32) -> anyhow::Result<Arc<Project>> 
 #[cfg(feature = "ssr")]
 pub async fn add_project_domain(project: Arc<Project>, domain: String) -> anyhow::Result<()> {
     if let (Ok(cert), Ok(key)) = (
-        tokio::fs::read(format!("certificates/{domain}/cert.pem")).await,
-        tokio::fs::read(format!("certificates/{domain}/key.pem")).await,
+        tokio::fs::read(
+            get_home_path()
+                .join("certificates")
+                .join(&domain)
+                .join("cert.pem"),
+        )
+        .await,
+        tokio::fs::read(
+            get_home_path()
+                .join("certificates")
+                .join(&domain)
+                .join("key.pem"),
+        )
+        .await,
     ) {
         let cert = pingora::tls::x509::X509::from_pem(&cert)?;
         let key = pingora::tls::pkey::PKey::private_key_from_pem(&key)?;
@@ -152,4 +169,12 @@ pub async fn add_project_domain(project: Arc<Project>, domain: String) -> anyhow
     }
 
     Ok(())
+}
+
+#[cfg(feature = "ssr")]
+pub fn get_home_path() -> std::path::PathBuf {
+    use std::path::PathBuf;
+
+    let home = std::env::var("SELF_CLOUD_HOME").expect("SELF_CLOUD_HOME var not set");
+    PathBuf::from(home)
 }

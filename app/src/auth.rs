@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use leptos::{server, use_context, ServerFnError};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct User {
@@ -61,12 +62,15 @@ pub async fn login(email: String, password: String) -> Result<(), ServerFnError>
         if user.pass == password {
             let cookie = get_encrypted_user_cookie(&user.user).unwrap();
             cookies.add(cookie);
+            info!("Login successful");
             leptos_axum::redirect("/dashboard");
             Ok(())
         } else {
+            info!("User password mismatch {}!={}", user.pass, password);
             Err(ServerFnError::new("UnAuthorized"))
         }
     } else {
+        info!("User not found with email {email}");
         Err(ServerFnError::new("UnAuthorized"))
     }
 }

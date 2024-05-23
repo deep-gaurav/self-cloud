@@ -30,6 +30,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 fn main() {
     tracing_subscriber::registry()
+        .with(tracing_journald::layer().expect("Cannot initialize journald"))
         .with(fmt::layer())
         .with(
             EnvFilter::builder()
@@ -37,7 +38,6 @@ fn main() {
                 .from_env_lossy(),
         )
         .init();
-
     let opt = Some(Opt::from_args());
     let mut my_server = Server::new(opt).unwrap();
 
@@ -47,5 +47,6 @@ fn main() {
     my_server.add_service(leptos_service);
     my_server.add_service(proxy_service);
 
+    my_server.bootstrap();
     my_server.run_forever()
 }

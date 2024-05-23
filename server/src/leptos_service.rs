@@ -62,7 +62,9 @@ async fn run_main() {
     // <https://github.com/leptos-rs/start-axum#executing-a-server-on-a-remote-machine-without-the-toolchain>
     // Alternately a file can be specified such as Some("Cargo.toml")
     // The file would need to be included with the executable when moved to deployment
+    tracing::info!("Starting leptos service");
     let conf = get_configuration(None).await.unwrap();
+
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
@@ -70,6 +72,8 @@ async fn run_main() {
     let acme: TLSState = Arc::new(RwLock::new(HashMap::new()));
 
     let acme_c = acme.clone();
+
+    tracing::info!("Starting TLS Generator");
     tokio::spawn(async move {
         if let Err(err) = tls_generator(acme_c).await {
             tracing::error!("TLs Generator erroed {err:#?}");
@@ -78,13 +82,19 @@ async fn run_main() {
 
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
+
+    tracing::info!("Getting authorized users");
     let users = match get_authorized_users().await {
         Ok(users) => users,
         Err(err) => {
+            eprintln!("Users get failed {err:?}");
+
             tracing::error!("Cant get authorized users");
             return;
         }
     };
+
+    tracing::info!("Create app state");
 
     let app_state = AppState {
         routes: routes.clone(),
@@ -115,8 +125,10 @@ async fn run_main() {
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
     tracing::info!("listening on http://{}", &addr);
+
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
+    tracing::info!("Adding project");
     let project = match add_project("cloud-panel", 3000).await {
         Ok(project) => project,
         Err(err) => {
@@ -124,10 +136,13 @@ async fn run_main() {
             return;
         }
     };
+
     if let Err(err) = add_project_domain(project, "cloud.deepwith.in".to_string()).await {
         tracing::error!("Cant add panel domain {err:#?}");
         return;
     }
+
+    tracing::info!("Running server");
 
     axum::serve(listener, app.into_make_service())
         .await
