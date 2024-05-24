@@ -34,6 +34,7 @@ bincode = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 
 time = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 
 
 [features]
@@ -53,4 +54,5 @@ ssr = [
     "dep:bincode",
     "dep:base64",
     "dep:time",
+    "dep:serde_json",
 ]

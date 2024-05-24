@@ -135,6 +135,7 @@ dependencies = [
  "pingora",
  "rand",
  "serde",
+ "serde_json",
  "thiserror",
  "time",
  "tokio",

@@ -5,7 +5,7 @@ use std::{
 
 use app::{
     auth::{server::get_user_from_cookie, AuthType, AuthorizedUsers},
-    common::{add_project, add_project_domain},
+    common::{add_project, add_project_domain, load_projects_config},
     App,
 };
 use axum::response::{IntoResponse, Response};
@@ -140,6 +140,11 @@ async fn run_main(tls_state: TLSState) {
             return;
         }
     };
+
+    tracing::info!("Load project config");
+    if let Err(err) = load_projects_config().await {
+        tracing::error!("Failed to load config {err:?}");
+    }
 
     if let Err(err) = add_project_domain(project, "cloud.deepwith.in".to_string()).await {
         tracing::error!("Cant add panel domain {err:#?}");

@@ -1,6 +1,5 @@
 use std::sync::{Arc, Weak};
 
-use leptos::server;
 use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 
@@ -15,12 +14,121 @@ pub struct Project {
     pub peer: Box<pingora::upstreams::peer::HttpPeer>,
 }
 
-#[cfg(not(feature = "ssr"))]
-#[derive(Deserialize)]
-struct ProjectFields {
+#[cfg(feature = "ssr")]
+impl Project {
+    pub fn new_from_fields(fields: ProjectFields) -> Project {
+        let peer = Box::new(pingora::upstreams::peer::HttpPeer::new(
+            format!("127.0.0.1:{}", fields.port),
+            false,
+            String::new(),
+        ));
+        Project {
+            id: fields.id,
+            port: fields.port,
+            name: fields.name,
+            peer,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ProjectFields {
     pub id: Uuid,
     pub port: u32,
     pub name: String,
+}
+
+impl From<Project> for ProjectFields {
+    fn from(val: Project) -> Self {
+        ProjectFields {
+            id: val.id,
+            port: val.port,
+            name: val.name,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DomainSerialize {
+    pub domain: String,
+    pub project_id: uuid::Uuid,
+}
+
+#[cfg(feature = "ssr")]
+#[derive(Serialize, Deserialize)]
+pub struct ProjectConfig {
+    pub projects: Vec<ProjectFields>,
+    pub domains: Vec<DomainSerialize>,
+}
+
+#[cfg(feature = "ssr")]
+pub async fn load_projects_config() -> anyhow::Result<()> {
+    let data = tokio::fs::read(get_home_path().join("projects.json")).await?;
+    let project_config = serde_json::from_slice::<ProjectConfig>(&data)?;
+    {
+        let mut projects = PROJECTS
+            .write()
+            .map_err(|e| anyhow::anyhow!("Failed to aquire lock {e:?}"))?;
+        for project in project_config.projects.into_iter() {
+            let project = Arc::new(Project::new_from_fields(project));
+            projects.insert(project.id, project.clone());
+        }
+    }
+
+    for domain in project_config.domains.into_iter() {
+        let project = {
+            let projects = PROJECTS
+                .read()
+                .map_err(|e| anyhow::anyhow!("Failed to aquire lock {e:?}"))?;
+            let project = projects.get(&domain.project_id).cloned();
+            project
+        };
+
+        if let Some(project) = project {
+            add_project_domain(project.clone(), domain.domain).await?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "ssr")]
+pub async fn save_project_config() -> anyhow::Result<()> {
+    let projects = {
+        let projects = PROJECTS
+            .read()
+            .map_err(|e| anyhow::anyhow!("Failed to aquire lock {e:?}"))?;
+        let projects = projects
+            .values()
+            .map(|p| ProjectFields {
+                id: p.id,
+                name: p.name.clone(),
+                port: p.port,
+            })
+            .collect::<Vec<_>>();
+        projects
+    };
+
+    let domains = {
+        let domains = DOMAIN_MAPPING
+            .read()
+            .map_err(|e| anyhow::anyhow!("Failed to aquire lock {e:?}"))?;
+        domains
+            .iter()
+            .filter_map(|(domain, status)| {
+                status.project.upgrade().map(|project| DomainSerialize {
+                    domain: domain.clone(),
+                    project_id: project.id,
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let config = ProjectConfig { domains, projects };
+    let data = serde_json::to_vec(&config)
+        .map_err(|e| anyhow::anyhow!("Cannot serialize config {e:?}"))?;
+    tokio::fs::write(get_home_path().join("projects.json"), data).await?;
+
+    Ok(())
 }
 
 impl<'de> Deserialize<'de> for Project {
@@ -95,7 +203,7 @@ pub static PROJECTS: once_cell::sync::Lazy<
     std::sync::RwLock<std::collections::HashMap<Uuid, std::sync::Arc<Project>>>,
 > = once_cell::sync::Lazy::new(|| {
     tracing::debug!("Creating new projects list");
-    let mut peers = std::collections::HashMap::new();
+    let peers = std::collections::HashMap::new();
     std::sync::RwLock::new(peers)
 });
 
@@ -104,7 +212,7 @@ pub static DOMAIN_MAPPING: once_cell::sync::Lazy<
     std::sync::RwLock<std::collections::HashMap<String, DomainStatus>>,
 > = once_cell::sync::Lazy::new(|| {
     tracing::debug!("Creating new domain mapping");
-    let mut peers = std::collections::HashMap::new();
+    let peers = std::collections::HashMap::new();
     std::sync::RwLock::new(peers)
 });
 
@@ -156,10 +264,7 @@ pub async fn add_project_domain(project: Arc<Project>, domain: String) -> anyhow
             domain.clone(),
             DomainStatus {
                 project: Arc::downgrade(&project),
-                ssl_provision: SSLProvisioning::Provisioned(SSlData {
-                    cert: cert,
-                    key: key,
-                }),
+                ssl_provision: SSLProvisioning::Provisioned(SSlData { cert, key }),
             },
         );
     } else {
