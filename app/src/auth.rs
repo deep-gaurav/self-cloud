@@ -25,6 +25,22 @@ impl AuthType {
             None
         }
     }
+
+    /// Returns `true` if the auth type is [`UnAuthorized`].
+    ///
+    /// [`UnAuthorized`]: AuthType::UnAuthorized
+    #[must_use]
+    pub fn is_un_authorized(&self) -> bool {
+        matches!(self, Self::UnAuthorized)
+    }
+
+    /// Returns `true` if the auth type is [`Authorized`].
+    ///
+    /// [`Authorized`]: AuthType::Authorized
+    #[must_use]
+    pub fn is_authorized(&self) -> bool {
+        matches!(self, Self::Authorized(..))
+    }
 }
 
 #[cfg(feature = "ssr")]

@@ -6,6 +6,7 @@ use crate::{
 
 use crate::pages::dashboard::Dashboard;
 use crate::pages::home::HomePage;
+use crate::pages::project::{project_page::ProjectPage, ProjectsHome, ProjectsList};
 
 use leptos::*;
 use leptos_meta::*;
@@ -52,6 +53,10 @@ pub fn App() -> impl IntoView {
                         <AuthCheck login=login is_auth_required=true />
                     } >
                         <Route path="" view=Dashboard/>
+                        <Route path="projects" view=ProjectsHome>
+                            <Route path="" view=ProjectsList/>
+                            <Route path=":id" view=ProjectPage/>
+                        </Route>
                     </Route>
                 </Routes>
             </main>

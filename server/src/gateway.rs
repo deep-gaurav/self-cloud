@@ -11,6 +11,7 @@ use pingora::{
     Error, Result,
 };
 use tracing::{info, warn};
+use unicase::UniCase;
 
 pub struct Gateway {
     provisioning_gateway: Box<HttpPeer>,
@@ -52,25 +53,25 @@ impl Gateway {
 
 pub struct GatewayContext {
     domain: Option<DomainStatus>,
-    host: String,
+    host: UniCase<String>,
 }
 
-fn get_session_domain(session: &mut Session) -> (String, Option<DomainStatus>) {
+fn get_session_domain(session: &mut Session) -> (UniCase<String>, Option<DomainStatus>) {
     fn get_host(session: &mut Session) -> String {
         if let Some(host) = session.get_header(header::HOST) {
             if let Ok(host_str) = host.to_str() {
-                return host_str.to_string();
+                return host_str.to_lowercase();
             }
         }
 
         if let Some(host) = session.req_header().uri.host() {
-            return host.to_string();
+            return host.to_lowercase();
         }
 
         "".to_string()
     }
 
-    let host = get_host(session);
+    let host = UniCase::<String>::from(get_host(session));
 
     let peers = DOMAIN_MAPPING.read().unwrap();
     (host.clone(), peers.get(&host).cloned())
@@ -85,7 +86,7 @@ impl ProxyHttp for Gateway {
     fn new_ctx(&self) -> Self::CTX {
         GatewayContext {
             domain: None,
-            host: String::new(),
+            host: UniCase::new(String::new()),
         }
     }
 
@@ -106,7 +107,7 @@ impl ProxyHttp for Gateway {
                     let uri = _session.req_header().uri.clone();
                     let new_uri = http::uri::Builder::from(uri.clone())
                         .scheme("https")
-                        .authority(_ctx.host.clone())
+                        .authority(_ctx.host.to_lowercase())
                         .build();
                     if let Ok(new_uri) = new_uri {
                         match ResponseHeader::build_no_case(
@@ -201,7 +202,7 @@ impl pingora::listeners::TlsAccept for CertSolver {
         if let Some(name) = name {
             let peer = 'b: {
                 let peers = DOMAIN_MAPPING.read().unwrap();
-                let peer = peers.get(name);
+                let peer = peers.get(&UniCase::from(name));
                 if let Some(peer) = peer {
                     if let SSLProvisioning::Provisioned(data) = &peer.ssl_provision {
                         break 'b Some((data.cert.clone(), data.key.clone()));

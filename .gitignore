@@ -15,3 +15,5 @@ playwright/.cache/
 
 account.json
 certificates
+
+projects.json

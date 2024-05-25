@@ -10,6 +10,7 @@ leptos.workspace = true
 leptos_meta.workspace = true
 leptos_router.workspace = true
 leptos_axum = { workspace = true, optional = true }
+leptos-use.workspace = true
 
 http.workspace = true
 cfg-if.workspace = true
@@ -36,6 +37,7 @@ base64 = { workspace = true, optional = true }
 time = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 
+unicase.workspace = true
 
 [features]
 default = []
@@ -44,6 +46,7 @@ ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
+    "leptos-use/ssr",
     "dep:leptos_axum",
     "dep:pingora",
     "dep:once_cell",

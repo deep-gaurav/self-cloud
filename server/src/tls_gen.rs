@@ -21,6 +21,7 @@ use rcgen::{
     Certificate, CertificateParams, CertificateSigningRequest, DistinguishedName, KeyPair,
 };
 use tracing::info;
+use unicase::UniCase;
 
 use crate::leptos_service::AppState;
 
@@ -67,7 +68,11 @@ impl BackgroundService for TLSGenService {
                     terms_of_service_agreed: true,
                     only_return_existing: false,
                 },
-                LetsEncrypt::Staging.url(),
+                if cfg!(debug_assertions) {
+                    LetsEncrypt::Staging.url()
+                } else {
+                    LetsEncrypt::Production.url()
+                },
                 None,
             )
             .await
@@ -98,31 +103,34 @@ impl BackgroundService for TLSGenService {
 
         let mut period = tokio::time::interval(std::time::Duration::from_secs(5));
 
-        tokio::select! {
-            _ = shutdown.changed() => {
-                info!("Shutdown received");
-            }
-            _ = period.tick() => {
-                let domain = 'ba: {
-                    let mut peers = DOMAIN_MAPPING.write().unwrap();
-                    for (domain, peer) in peers.iter_mut() {
-                        if peer.ssl_provision.is_not_provisioned() {
-                            peer.ssl_provision = SSLProvisioning::Provisioning;
-                            break 'ba Some(domain.clone());
-                        }
-                    }
-                    None
-                };
-                let account = account.clone();
-                let acme = self.state.clone();
-
-                if let Some(domain) = domain {
-                    tokio::spawn(async move {
-                        generate_certificate(domain, account, acme).await;
-                    });
+        loop {
+            tokio::select! {
+                _ = shutdown.changed() => {
+                    info!("Shutdown received");
+                    break;
                 }
-            }
-        };
+                _ = period.tick() => {
+                    let domain = 'ba: {
+                        let mut peers = DOMAIN_MAPPING.write().unwrap();
+                        for (domain, peer) in peers.iter_mut() {
+                            if peer.ssl_provision.is_not_provisioned() {
+                                peer.ssl_provision = SSLProvisioning::Provisioning;
+                                break 'ba Some(domain.clone());
+                            }
+                        }
+                        None
+                    };
+                    let account = account.clone();
+                    let acme = self.state.clone();
+
+                    if let Some(domain) = domain {
+                        tokio::spawn(async move {
+                            generate_certificate(domain, account, acme).await;
+                        });
+                    }
+                }
+            };
+        }
     }
 }
 
@@ -138,8 +146,8 @@ pub async fn acme_handler(
     }
 }
 
-async fn generate_certificate(domain: String, account: Account, acme: TLSState) {
-    let identifier = Identifier::Dns(domain.clone());
+async fn generate_certificate(domain: UniCase<String>, account: Account, acme: TLSState) {
+    let identifier = Identifier::Dns(domain.to_lowercase());
     let mut order = account
         .new_order(&NewOrder {
             identifiers: &[identifier],
@@ -222,7 +230,7 @@ async fn generate_certificate(domain: String, account: Account, acme: TLSState) 
         return;
     }
 
-    let mut names = vec![domain.clone()];
+    let mut names = vec![domain.to_lowercase()];
 
     // If the order is ready, we can provision the certificate.
     // Use the rcgen library to create a Certificate Signing Request.
@@ -246,13 +254,13 @@ async fn generate_certificate(domain: String, account: Account, acme: TLSState) 
     // info!("certficate chain:\n\n{}", cert_chain_pem);
     // info!("private key:\n\n{}", kp.serialize_pem());
 
-    tokio::fs::create_dir_all(get_home_path().join("certificates").join(&domain))
+    tokio::fs::create_dir_all(get_home_path().join("certificates").join(domain.as_str()))
         .await
         .unwrap();
     tokio::fs::write(
         get_home_path()
             .join("certificates")
-            .join(&domain)
+            .join(domain.as_str())
             .join("cert.pem"),
         cert_chain_pem.clone(),
     )
@@ -261,7 +269,7 @@ async fn generate_certificate(domain: String, account: Account, acme: TLSState) 
     tokio::fs::write(
         get_home_path()
             .join("certificates")
-            .join(&domain)
+            .join(domain.as_str())
             .join("key.pem"),
         kp.serialize_pem(),
     )
@@ -275,8 +283,11 @@ async fn generate_certificate(domain: String, account: Account, acme: TLSState) 
             let key = pingora::tls::pkey::PKey::private_key_from_pem(kp.serialize_pem().as_bytes());
 
             if let (Ok(cert), Ok(key)) = (cert, key) {
-                peer.ssl_provision =
-                    SSLProvisioning::Provisioned(app::common::SSlData { cert, key });
+                peer.ssl_provision = SSLProvisioning::Provisioned(app::common::SSlData {
+                    cert,
+                    key,
+                    is_active: true,
+                });
             }
         }
     };

@@ -5,7 +5,7 @@ use std::{
 
 use app::{
     auth::{server::get_user_from_cookie, AuthType, AuthorizedUsers},
-    common::{add_project, add_project_domain, load_projects_config},
+    common::{add_project, add_project_domain, load_projects_config, save_project_config},
     App,
 };
 use axum::response::{IntoResponse, Response};
@@ -132,23 +132,28 @@ async fn run_main(tls_state: TLSState) {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     };
 
-    tracing::info!("Adding project");
-    let project = match add_project("cloud-panel", 3000).await {
-        Ok(project) => project,
-        Err(err) => {
-            tracing::error!("Cant create cloud-panel project {err:#?}");
-            return;
-        }
-    };
-
     tracing::info!("Load project config");
     if let Err(err) = load_projects_config().await {
         tracing::error!("Failed to load config {err:?}");
-    }
 
-    if let Err(err) = add_project_domain(project, "cloud.deepwith.in".to_string()).await {
-        tracing::error!("Cant add panel domain {err:#?}");
-        return;
+        tracing::info!("Adding project");
+        let project = match add_project("cloud-panel", 3000).await {
+            Ok(project) => project,
+            Err(err) => {
+                tracing::error!("Cant create cloud-panel project {err:#?}");
+                return;
+            }
+        };
+
+        if let Err(err) = add_project_domain(project, "cloud.deepwith.in".to_string()).await {
+            tracing::error!("Cant add panel domain {err:#?}");
+            return;
+        }
+
+        if let Err(err) = save_project_config().await {
+            tracing::error!("Cant save config {err:#?}");
+            return;
+        }
     }
 
     tracing::info!("Running server");

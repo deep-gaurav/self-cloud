@@ -30,15 +30,19 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 static GLOBAL: Jemalloc = Jemalloc;
 
 fn main() {
-    tracing_subscriber::registry()
-        .with(tracing_journald::layer().expect("Cannot initialize journald"))
-        .with(fmt::layer())
-        .with(
-            EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
-        .init();
+    let subscriber = tracing_subscriber::registry().with(fmt::layer()).with(
+        EnvFilter::builder()
+            .with_default_directive(LevelFilter::INFO.into())
+            .from_env_lossy(),
+    );
+
+    if cfg!(target_os = "linux") {
+        subscriber
+            .with(tracing_journald::layer().expect("Cannot initialize journald"))
+            .init();
+    } else {
+        subscriber.init();
+    }
     let opt = Some(Opt::from_args());
     let mut my_server = Server::new(opt).unwrap();
 

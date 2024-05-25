@@ -1,6 +1,7 @@
 use std::sync::{Arc, Weak};
 
 use serde::{Deserialize, Deserializer, Serialize};
+use tracing::{error, info};
 use uuid::Uuid;
 
 #[derive(Serialize, Clone)]
@@ -116,7 +117,7 @@ pub async fn save_project_config() -> anyhow::Result<()> {
             .iter()
             .filter_map(|(domain, status)| {
                 status.project.upgrade().map(|project| DomainSerialize {
-                    domain: domain.clone(),
+                    domain: domain.to_string(),
                     project_id: project.id,
                 })
             })
@@ -157,7 +158,7 @@ impl<'de> Deserialize<'de> for Project {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum SSLProvisioning {
     NotProvisioned,
     Provisioning,
@@ -180,22 +181,91 @@ impl SSLProvisioning {
     pub fn is_provisioned(&self) -> bool {
         matches!(self, Self::Provisioned(..))
     }
+
+    /// Returns `true` if the sslprovisioning is [`Provisioning`].
+    ///
+    /// [`Provisioning`]: SSLProvisioning::Provisioning
+    #[must_use]
+    pub fn is_provisioning(&self) -> bool {
+        matches!(self, Self::Provisioning)
+    }
 }
 
-#[cfg(feature = "ssr")]
 #[derive(Clone)]
+#[cfg(feature = "ssr")]
 pub struct DomainStatus {
+    #[cfg(feature = "ssr")]
     pub project: Weak<Project>,
     pub ssl_provision: SSLProvisioning,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
+pub struct DomainStatusFields {
+    pub ssl_provision: SSLProvisioning,
+}
+
+#[cfg(feature = "ssr")]
+impl From<DomainStatus> for DomainStatusFields {
+    fn from(value: DomainStatus) -> Self {
+        Self {
+            ssl_provision: value.ssl_provision,
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
 pub struct SSlData {
     #[cfg(feature = "ssr")]
+    #[serde(skip)]
     pub cert: pingora::tls::x509::X509,
 
+    #[serde(skip)]
     #[cfg(feature = "ssr")]
     pub key: pingora::tls::pkey::PKey<pingora::tls::pkey::Private>,
+
+    pub is_active: bool,
+}
+
+impl PartialEq for SSlData {
+    fn eq(&self, other: &Self) -> bool {
+        #[cfg(not(feature = "ssr"))]
+        {
+            self.is_active == other.is_active
+        }
+
+        #[cfg(feature = "ssr")]
+        {
+            self.cert == other.cert && self.is_active == other.is_active
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for SSlData {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[cfg(not(feature = "ssr"))]
+        {
+            #[derive(Clone, Deserialize)]
+            pub struct TmpSlData {
+                pub is_active: bool,
+            }
+
+            let d = TmpSlData::deserialize(deserializer)?;
+
+            Ok(SSlData {
+                is_active: d.is_active,
+            })
+        }
+
+        #[cfg(feature = "ssr")]
+        {
+            Err(serde::de::Error::custom(
+                "Deserialization is not supported with the 'ssr' feature enabled",
+            ))
+        }
+    }
 }
 
 #[cfg(feature = "ssr")]
@@ -209,7 +279,7 @@ pub static PROJECTS: once_cell::sync::Lazy<
 
 #[cfg(feature = "ssr")]
 pub static DOMAIN_MAPPING: once_cell::sync::Lazy<
-    std::sync::RwLock<std::collections::HashMap<String, DomainStatus>>,
+    std::sync::RwLock<std::collections::HashMap<unicase::UniCase<String>, DomainStatus>>,
 > = once_cell::sync::Lazy::new(|| {
     tracing::debug!("Creating new domain mapping");
     let peers = std::collections::HashMap::new();
@@ -238,6 +308,9 @@ pub async fn add_project(name: &str, port: u32) -> anyhow::Result<Arc<Project>> 
 
 #[cfg(feature = "ssr")]
 pub async fn add_project_domain(project: Arc<Project>, domain: String) -> anyhow::Result<()> {
+    use unicase::UniCase;
+
+    let domain = domain.to_ascii_lowercase();
     if let (Ok(cert), Ok(key)) = (
         tokio::fs::read(
             get_home_path()
@@ -261,10 +334,14 @@ pub async fn add_project_domain(project: Arc<Project>, domain: String) -> anyhow
             .map_err(|e| anyhow::anyhow!("{e:?}"))?;
 
         peers.insert(
-            domain.clone(),
+            UniCase::from(domain),
             DomainStatus {
                 project: Arc::downgrade(&project),
-                ssl_provision: SSLProvisioning::Provisioned(SSlData { cert, key }),
+                ssl_provision: SSLProvisioning::Provisioned(SSlData {
+                    cert,
+                    key,
+                    is_active: true,
+                }),
             },
         );
     } else {
@@ -273,7 +350,7 @@ pub async fn add_project_domain(project: Arc<Project>, domain: String) -> anyhow
             .map_err(|e| anyhow::anyhow!("{e:?}"))?;
 
         peers.insert(
-            domain,
+            UniCase::from(domain),
             DomainStatus {
                 project: Arc::downgrade(&project),
                 ssl_provision: SSLProvisioning::NotProvisioned,
