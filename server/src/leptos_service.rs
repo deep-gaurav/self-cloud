@@ -5,7 +5,9 @@ use std::{
 
 use app::{
     auth::{server::get_user_from_cookie, AuthType, AuthorizedUsers},
-    common::{add_project, add_project_domain, load_projects_config, save_project_config},
+    common::{
+        add_port_forward_project, add_project_domain, load_projects_config, save_project_config,
+    },
     App,
 };
 use axum::response::{IntoResponse, Response};
@@ -137,7 +139,7 @@ async fn run_main(tls_state: TLSState) {
         tracing::error!("Failed to load config {err:?}");
 
         tracing::info!("Adding project");
-        let project = match add_project("cloud-panel", 3000).await {
+        let project = match add_port_forward_project("cloud-panel", 3000).await {
             Ok(project) => project,
             Err(err) => {
                 tracing::error!("Cant create cloud-panel project {err:#?}");

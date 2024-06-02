@@ -49,6 +49,7 @@ tracing-journald.workspace = true
 time.workspace = true
 http.workspace = true
 unicase.workspace = true
+rustainers.workspace = true
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.5"

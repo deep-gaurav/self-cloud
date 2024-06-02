@@ -2,6 +2,7 @@ use crate::{
     api::get_projects,
     auth::{get_auth, AuthType},
     error_template::{AppError, ErrorTemplate},
+    pages::project::project_page::{DomainsList, ProjectSettings},
 };
 
 use crate::pages::dashboard::Dashboard;
@@ -41,7 +42,7 @@ pub fn App() -> impl IntoView {
             view! { <ErrorTemplate outside_errors/> }.into_view()
         }>
 
-            <main class="h-full w-full">
+            <main class="h-full w-full bg-slate-100 dark:bg-black dark:text-slate-50">
                 <Routes>
                     <Route ssr=SsrMode::PartiallyBlocked path="" view= move || view! {
                         <AuthCheck login=login is_auth_required=false />
@@ -55,7 +56,10 @@ pub fn App() -> impl IntoView {
                         <Route path="" view=Dashboard/>
                         <Route path="projects" view=ProjectsHome>
                             <Route path="" view=ProjectsList/>
-                            <Route path=":id" view=ProjectPage/>
+                            <Route path=":id" view=ProjectPage>
+                                <Route path="" view=ProjectSettings />
+                                <Route path="domains" view=DomainsList />
+                            </Route>
                         </Route>
                     </Route>
                 </Routes>

@@ -30,7 +30,7 @@ pub fn ProjectsList() -> impl IntoView {
                                 <div class="text-xl"> {p.name} </div>
                                 <div class="text-slate-600 text-sm"> {p.id.to_string()} </div>
                                 <div class="h-2" />
-                                <div > "Port: " {p.port} </div>
+                                // <div > "Port: " {p.port} </div>
                             </A>
                         </div>
                     }

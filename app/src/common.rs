@@ -7,25 +7,47 @@ use uuid::Uuid;
 #[derive(Serialize, Clone)]
 pub struct Project {
     pub id: Uuid,
-    pub port: u32,
     pub name: String,
+
+    pub project_type: ProjectType,
 
     #[cfg(feature = "ssr")]
     #[serde(skip)]
     pub peer: Box<pingora::upstreams::peer::HttpPeer>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub enum ProjectType {
+    PortForward(u32),
+    Container(Container),
+}
+
+impl ProjectType {
+    pub fn get_port(&self) -> u32 {
+        match self {
+            ProjectType::PortForward(port) => *port,
+            ProjectType::Container(container) => container.port_mapping.1,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Container {
+    image: String,
+    port_mapping: (u32, u32),
+}
+
 #[cfg(feature = "ssr")]
 impl Project {
     pub fn new_from_fields(fields: ProjectFields) -> Project {
         let peer = Box::new(pingora::upstreams::peer::HttpPeer::new(
-            format!("127.0.0.1:{}", fields.port),
+            format!("127.0.0.1:{}", fields.project_type.get_port()),
             false,
             String::new(),
         ));
         Project {
             id: fields.id,
-            port: fields.port,
+            project_type: fields.project_type,
             name: fields.name,
             peer,
         }
@@ -35,16 +57,28 @@ impl Project {
 #[derive(Serialize, Deserialize)]
 pub struct ProjectFields {
     pub id: Uuid,
-    pub port: u32,
     pub name: String,
+    pub project_type: ProjectType,
 }
 
 impl From<Project> for ProjectFields {
     fn from(val: Project) -> Self {
         ProjectFields {
             id: val.id,
-            port: val.port,
+            project_type: val.project_type,
             name: val.name,
+        }
+    }
+}
+
+impl From<ProjectFields> for Project {
+    fn from(value: ProjectFields) -> Self {
+        Project {
+            id: value.id,
+            name: value.name,
+            project_type: value.project_type,
+            #[cfg(feature = "ssr")]
+            peer: unimplemented!(),
         }
     }
 }
@@ -100,11 +134,7 @@ pub async fn save_project_config() -> anyhow::Result<()> {
             .map_err(|e| anyhow::anyhow!("Failed to aquire lock {e:?}"))?;
         let projects = projects
             .values()
-            .map(|p| ProjectFields {
-                id: p.id,
-                name: p.name.clone(),
-                port: p.port,
-            })
+            .map(|p| p.as_ref().clone().into())
             .collect::<Vec<_>>();
         projects
     };
@@ -140,13 +170,7 @@ impl<'de> Deserialize<'de> for Project {
         #[cfg(not(feature = "ssr"))]
         {
             let fields = ProjectFields::deserialize(deserializer)?;
-            Ok(Project {
-                id: fields.id,
-                port: fields.port,
-                name: fields.name,
-                #[cfg(feature = "ssr")]
-                peer: unimplemented!(),
-            })
+            Ok(fields.into())
         }
 
         #[cfg(feature = "ssr")]
@@ -287,7 +311,7 @@ pub static DOMAIN_MAPPING: once_cell::sync::Lazy<
 });
 
 #[cfg(feature = "ssr")]
-pub async fn add_project(name: &str, port: u32) -> anyhow::Result<Arc<Project>> {
+pub async fn add_port_forward_project(name: &str, port: u32) -> anyhow::Result<Arc<Project>> {
     let id = uuid::Uuid::new_v4();
     let http_peer = Box::new(pingora::upstreams::peer::HttpPeer::new(
         format!("127.0.0.1:{port}"),
@@ -297,7 +321,7 @@ pub async fn add_project(name: &str, port: u32) -> anyhow::Result<Arc<Project>> 
     let project = Arc::new(Project {
         id,
         name: name.to_string(),
-        port,
+        project_type: ProjectType::PortForward(port),
         peer: http_peer,
     });
     let mut projects = PROJECTS.write().map_err(|e| anyhow::anyhow!("{e:#?}"))?;

@@ -10,5 +10,6 @@ module.exports = {
   plugins: [],
   safelist: [
     'hidden',
+    'text-slate',
   ]
 }

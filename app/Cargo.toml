@@ -39,6 +39,8 @@ serde_json = { workspace = true, optional = true }
 
 unicase.workspace = true
 
+rustainers = { workspace = true, optional = true }
+
 [features]
 default = []
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
@@ -58,4 +60,5 @@ ssr = [
     "dep:base64",
     "dep:time",
     "dep:serde_json",
+    "dep:rustainers",
 ]
