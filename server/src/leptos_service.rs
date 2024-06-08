@@ -1,8 +1,3 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
-
 use app::{
     auth::{server::get_user_from_cookie, AuthType, AuthorizedUsers},
     common::{
@@ -22,12 +17,9 @@ use leptos_router::RouteListing;
 
 use pingora::{
     server::ShutdownWatch,
-    services::{
-        background::{background_service, BackgroundService, GenBackgroundService},
-        listening::Service,
-    },
+    services::background::{background_service, BackgroundService, GenBackgroundService},
 };
-use tower_cookies::{CookieManager, CookieManagerLayer, Cookies};
+use tower_cookies::{CookieManagerLayer, Cookies};
 use tracing::info;
 
 use crate::{
@@ -78,8 +70,6 @@ async fn run_main(tls_state: TLSState) {
     let conf = get_configuration(None).await.unwrap();
 
     let leptos_options = conf.leptos_options;
-    let addr = leptos_options.site_addr;
-    let routes = generate_route_list(App);
 
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);

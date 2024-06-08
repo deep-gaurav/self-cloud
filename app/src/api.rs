@@ -1,10 +1,42 @@
-use std::{borrow::Borrow, collections::HashMap};
+use std::{borrow::Borrow, collections::HashMap, sync::Arc};
 
 use anyhow::anyhow;
 use leptos::{expect_context, server, use_context, ServerFnError};
 use uuid::Uuid;
 
-use crate::common::{DomainStatusFields, Project};
+use crate::common::{Container, DomainStatusFields, Project, ProjectType};
+
+#[server(AddProject)]
+pub async fn add_project(name: String) -> Result<Project, ServerFnError> {
+    use crate::common::PROJECTS;
+
+    user()?;
+    let id = uuid::Uuid::new_v4();
+
+    let reserve_port = 3000;
+
+    let project = Project {
+        id,
+        name,
+        peer: Box::new(pingora::upstreams::peer::HttpPeer::new(
+            format!("0.0.0.0:{reserve_port}"),
+            false,
+            String::new(),
+        )),
+        project_type: ProjectType::PortForward(3000),
+    };
+    {
+        let mut projects = PROJECTS
+            .write()
+            .map_err(|e| ServerFnError::new(anyhow!("{e:?}")))?;
+
+        projects.insert(id, Arc::new(project.clone()));
+    }
+    crate::common::save_project_config()
+        .await
+        .map_err(ServerFnError::new)?;
+    Ok(project)
+}
 
 #[server(GetProjects)]
 pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
@@ -93,6 +125,75 @@ pub async fn add_project_domain(id: Uuid, domain: String) -> Result<(), ServerFn
     super::common::add_project_domain(project, domain)
         .await
         .map_err(ServerFnError::new)?;
+
+    crate::common::save_project_config()
+        .await
+        .map_err(ServerFnError::new)?;
+    Ok(())
+}
+
+#[server(UpdateProjectPort)]
+pub async fn update_project_port(id: Uuid, port: u16) -> Result<(), ServerFnError> {
+    user()?;
+
+    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+
+    let new_project = Project {
+        project_type: ProjectType::PortForward(port),
+        peer: Box::new(pingora::upstreams::peer::HttpPeer::new(
+            format!("0.0.0.0:{port}"),
+            false,
+            String::new(),
+        )),
+        ..project.as_ref().clone()
+    };
+
+    {
+        let mut projects = crate::common::PROJECTS
+            .write()
+            .map_err(|e| ServerFnError::new(anyhow!("{e:?}")))?;
+
+        projects.insert(project.id, Arc::new(new_project.clone()));
+    }
+
+    crate::common::save_project_config()
+        .await
+        .map_err(ServerFnError::new)?;
+    Ok(())
+}
+
+#[server(UpdateProjectImage)]
+pub async fn update_project_image(
+    id: Uuid,
+    image: String,
+    container_port: u16,
+    host_port: u16,
+) -> Result<(), ServerFnError> {
+    user()?;
+
+    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+
+    let new_project = Project {
+        project_type: ProjectType::Container(Container {
+            image,
+            port_mapping: (container_port, host_port),
+            status: None,
+        }),
+        peer: Box::new(pingora::upstreams::peer::HttpPeer::new(
+            format!("0.0.0.0:{host_port}"),
+            false,
+            String::new(),
+        )),
+        ..project.as_ref().clone()
+    };
+
+    {
+        let mut projects = crate::common::PROJECTS
+            .write()
+            .map_err(|e| ServerFnError::new(anyhow!("{e:?}")))?;
+
+        projects.insert(project.id, Arc::new(new_project.clone()));
+    }
 
     crate::common::save_project_config()
         .await

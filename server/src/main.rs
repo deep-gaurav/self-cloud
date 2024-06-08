@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::RwLock};
 
+use container_manager::ContainerManager;
 use gateway::Gateway;
 use leptos_service::LeptosService;
 use openssl::pkey::Private;
@@ -13,6 +14,7 @@ use structopt::StructOpt;
 // mod proxy;
 
 mod auth;
+mod container_manager;
 mod fileserv;
 mod gateway;
 mod leptos_service;
@@ -51,9 +53,11 @@ fn main() {
     let leptos_service = LeptosService::to_service(tls_state.clone());
     let tls_gen_service = TLSGenService::to_service(tls_state);
     let proxy_service = Gateway::to_service(&my_server);
+    let container_service = ContainerManager::to_service();
     my_server.add_service(leptos_service);
     my_server.add_service(proxy_service);
     my_server.add_service(tls_gen_service);
+    my_server.add_service(container_service);
 
     my_server.bootstrap();
     my_server.run_forever()

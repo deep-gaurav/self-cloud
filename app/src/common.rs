@@ -1,7 +1,9 @@
-use std::sync::{Arc, Weak};
+use std::{
+    str::FromStr,
+    sync::{Arc, Weak},
+};
 
 use serde::{Deserialize, Deserializer, Serialize};
-use tracing::{error, info};
 use uuid::Uuid;
 
 #[derive(Serialize, Clone)]
@@ -16,25 +18,108 @@ pub struct Project {
     pub peer: Box<pingora::upstreams::peer::HttpPeer>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum ProjectType {
-    PortForward(u32),
+    PortForward(u16),
     Container(Container),
 }
 
 impl ProjectType {
-    pub fn get_port(&self) -> u32 {
+    pub fn get_port(&self) -> u16 {
         match self {
             ProjectType::PortForward(port) => *port,
             ProjectType::Container(container) => container.port_mapping.1,
         }
     }
+
+    /// Returns `true` if the project type is [`PortForward`].
+    ///
+    /// [`PortForward`]: ProjectType::PortForward
+    #[must_use]
+    pub fn is_port_forward(&self) -> bool {
+        matches!(self, Self::PortForward(..))
+    }
+
+    /// Returns `true` if the project type is [`Container`].
+    ///
+    /// [`Container`]: ProjectType::Container
+    #[must_use]
+    pub fn is_container(&self) -> bool {
+        matches!(self, Self::Container(..))
+    }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Clone)]
 pub struct Container {
-    image: String,
-    port_mapping: (u32, u32),
+    pub image: String,
+    pub port_mapping: (u16, u16),
+    #[cfg(feature = "ssr")]
+    #[serde(skip)]
+    pub status: Option<Arc<rustainers::Container<Container>>>,
+}
+
+impl PartialEq for Container {
+    fn eq(&self, other: &Self) -> bool {
+        self.image == other.image && self.port_mapping == other.port_mapping
+    }
+}
+
+#[cfg(feature = "ssr")]
+impl rustainers::ToRunnableContainer for Container {
+    fn to_runnable(
+        &self,
+        builder: rustainers::RunnableContainerBuilder,
+    ) -> rustainers::RunnableContainer {
+        use rustainers::{ExposedPort, ImageName};
+
+        let image = self.image.clone();
+        let image_name = ImageName::from_str(image.as_str()).expect("Cant create image name");
+
+        builder
+            .with_image(image_name)
+            .with_port_mappings([ExposedPort::fixed(self.port_mapping.0, self.port_mapping.1)])
+            .build()
+    }
+}
+
+impl<'de> Deserialize<'de> for Container {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[cfg(not(feature = "ssr"))]
+        {
+            #[derive(Clone, Deserialize)]
+            pub struct TmpContainer {
+                image: String,
+                port_mapping: (u16, u16),
+            }
+
+            let d = TmpContainer::deserialize(deserializer)?;
+
+            Ok(Container {
+                image: d.image,
+                port_mapping: d.port_mapping,
+            })
+        }
+
+        #[cfg(feature = "ssr")]
+        {
+            #[derive(Clone, Deserialize)]
+            pub struct TmpContainer {
+                image: String,
+                port_mapping: (u16, u16),
+            }
+
+            let d = TmpContainer::deserialize(deserializer)?;
+
+            Ok(Container {
+                image: d.image,
+                port_mapping: d.port_mapping,
+                status: None,
+            })
+        }
+    }
 }
 
 #[cfg(feature = "ssr")]
@@ -311,7 +396,7 @@ pub static DOMAIN_MAPPING: once_cell::sync::Lazy<
 });
 
 #[cfg(feature = "ssr")]
-pub async fn add_port_forward_project(name: &str, port: u32) -> anyhow::Result<Arc<Project>> {
+pub async fn add_port_forward_project(name: &str, port: u16) -> anyhow::Result<Arc<Project>> {
     let id = uuid::Uuid::new_v4();
     let http_peer = Box::new(pingora::upstreams::peer::HttpPeer::new(
         format!("127.0.0.1:{port}"),

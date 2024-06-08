@@ -17,9 +17,7 @@ use pingora::{
     server::ShutdownWatch,
     services::background::{background_service, BackgroundService, GenBackgroundService},
 };
-use rcgen::{
-    Certificate, CertificateParams, CertificateSigningRequest, DistinguishedName, KeyPair,
-};
+use rcgen::{CertificateParams, DistinguishedName, KeyPair};
 use tracing::info;
 use unicase::UniCase;
 

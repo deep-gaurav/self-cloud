@@ -1,12 +1,6 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
-use anyhow::anyhow;
-use app::{
-    auth::{User, UserWithPass},
-    common::get_home_path,
-};
-use axum::extract::Path;
-use tower_cookies::Cookie;
+use app::{auth::UserWithPass, common::get_home_path};
 
 pub async fn get_authorized_users() -> anyhow::Result<HashMap<String, UserWithPass>> {
     let users = tokio::fs::read(get_home_path().join("users.json")).await?;
