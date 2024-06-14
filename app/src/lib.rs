@@ -44,21 +44,25 @@ pub fn App() -> impl IntoView {
 
             <main class="h-full w-full bg-slate-100 dark:bg-black dark:text-slate-50">
                 <Routes>
-                    <Route ssr=SsrMode::PartiallyBlocked path="" view= move || view! {
-                        <AuthCheck login=login is_auth_required=false />
-                    } >
-                        <Route path="" view=move|| view!{ <HomePage login=login />}/>
+                    <Route
+                        ssr=SsrMode::PartiallyBlocked
+                        path=""
+                        view=move || view! { <AuthCheck login=login is_auth_required=false/> }
+                    >
+                        <Route path="" view=move || view! { <HomePage login=login/> }/>
                     </Route>
 
-                    <Route ssr=SsrMode::PartiallyBlocked path="dashboard" view=move || view! {
-                        <AuthCheck login=login is_auth_required=true />
-                    } >
+                    <Route
+                        ssr=SsrMode::PartiallyBlocked
+                        path="dashboard"
+                        view=move || view! { <AuthCheck login=login is_auth_required=true/> }
+                    >
                         <Route path="" view=Dashboard/>
                         <Route path="projects" view=ProjectsHome>
                             <Route path="" view=ProjectsList/>
                             <Route path=":id" view=ProjectPage>
-                                <Route path="" view=ProjectSettings />
-                                <Route path="domains" view=DomainsList />
+                                <Route path="" view=ProjectSettings/>
+                                <Route path="domains" view=DomainsList/>
                             </Route>
                         </Route>
                     </Route>
@@ -86,40 +90,34 @@ pub fn AuthCheck(
     provide_context(auth);
 
     view! {
-        <Suspense
-            fallback=move || view! { <p>"Loading..."</p> }
-        >
+        <Suspense fallback=move || {
+            view! { <p>"Loading..."</p> }
+        }>
+
             {
                 let user = auth.get().unwrap_or(AuthType::UnAuthorized);
                 if auth.loading().get() {
-                    view!{}.into_view()
-                }else{
+                    view! {}.into_view()
+                } else {
                     match user {
                         AuthType::UnAuthorized => {
                             if is_auth_required {
-                                view!{
-                                    <Redirect path="/" />
-                                }.into_view()
+                                view! { <Redirect path="/"/> }.into_view()
                             } else {
-                                view!{
-                                    <Outlet/>
-                                }.into_view()
+                                view! { <Outlet/> }.into_view()
                             }
-                        },
+                        }
                         AuthType::Authorized(_) => {
                             if !is_auth_required {
-                                view!{
-                                    <Redirect path="/dashboard" />
-                                }.into_view()
+                                view! { <Redirect path="/dashboard"/> }.into_view()
                             } else {
-                                view!{
-                                    <Outlet/>
-                                }.into_view()
+                                view! { <Outlet/> }.into_view()
                             }
-                        },
+                        }
                     }
                 }
             }
+
         </Suspense>
     }
 }

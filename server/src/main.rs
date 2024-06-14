@@ -17,6 +17,7 @@ mod auth;
 mod container_manager;
 mod fileserv;
 mod gateway;
+mod image_uploader;
 mod leptos_service;
 mod tls_gen;
 

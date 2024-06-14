@@ -38,8 +38,10 @@ time = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 
 unicase.workspace = true
+unicase_serde.workspace = true
 
-rustainers = { workspace = true, optional = true }
+podman-api = { workspace = true, optional = true }
+
 
 [features]
 default = []
@@ -60,5 +62,5 @@ ssr = [
     "dep:base64",
     "dep:time",
     "dep:serde_json",
-    "dep:rustainers",
+    "dep:podman-api",
 ]

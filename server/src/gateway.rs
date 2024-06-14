@@ -1,4 +1,8 @@
-use app::common::{DomainStatus, SSLProvisioning, DOMAIN_MAPPING};
+use std::sync::Arc;
+
+use app::common::{
+    ContainerStatus, DomainStatus, Project, SSLProvisioning, DOMAIN_MAPPING, PROJECTS,
+};
 use axum::{body::Bytes, http::header};
 use openssl::ssl::NameType;
 use pingora::{
@@ -19,15 +23,9 @@ pub struct Gateway {
 
 impl Gateway {
     pub fn to_service(server: &Server) -> Service<HttpProxy<Self>> {
-        let http_port;
-        let https_port;
-        if cfg!(debug_assertions) {
-            http_port = 8080;
-            https_port = 4433;
-        } else {
-            https_port = 443;
-            http_port = 80;
-        }
+        let http_port = 8080;
+        let https_port = 4433;
+
         let provisioning_gateway = Box::new(HttpPeer::new("127.0.0.1:3000", false, String::new()));
         let service = Self {
             provisioning_gateway,
@@ -167,7 +165,7 @@ impl ProxyHttp for Gateway {
         session: &mut Session,
         ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
-        if let Some(domain) = &ctx.domain {
+        if let Some(domain) = &mut ctx.domain {
             match domain.ssl_provision {
                 SSLProvisioning::NotProvisioned => {
                     return Err(pingora::Error::explain(
@@ -178,8 +176,51 @@ impl ProxyHttp for Gateway {
                 SSLProvisioning::Provisioning => return Ok(self.provisioning_gateway.clone()),
                 SSLProvisioning::Provisioned(_) => {
                     let project = domain.project.upgrade();
+                    fn get_peer(
+                        project: Arc<Project>,
+                        host: &UniCase<String>,
+                    ) -> anyhow::Result<Box<HttpPeer>> {
+                        match &project.project_type {
+                            app::common::ProjectType::PortForward(port) => {
+                                return Ok(port.peer.clone());
+                            }
+                            app::common::ProjectType::Container(container) => {
+                                if let ContainerStatus::Running(pod) = &container.status {
+                                    let port = container.exposed_ports.iter().find(|cont| {
+                                        cont.domains.iter().any(|dom| &dom.name == host)
+                                    });
+                                    if let Some(port) = port {
+                                        if let Some(peer) = &port.peer {
+                                            return Ok(peer.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(anyhow::anyhow!("No peer in project"))
+                    }
                     if let Some(project) = project {
-                        return Ok(project.peer.clone());
+                        let peer = get_peer(project, &ctx.host);
+                        if let Ok(peer) = peer {
+                            return Ok(peer);
+                        }
+                    } else {
+                        {
+                            let projects = PROJECTS.read().await;
+                            if let Some(proj) = projects.get(&domain.project_id) {
+                                domain.project = Arc::downgrade(proj);
+                            }
+                        }
+                        {
+                            let mut domains = DOMAIN_MAPPING.write().unwrap();
+                            domains.insert(ctx.host.clone(), domain.clone());
+                        }
+                        if let Some(project) = domain.project.upgrade() {
+                            let peer = get_peer(project, &ctx.host);
+                            if let Ok(peer) = peer {
+                                return Ok(peer);
+                            }
+                        }
                     }
                 }
             }

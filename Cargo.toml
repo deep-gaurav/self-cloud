@@ -44,7 +44,7 @@ leptos_router = { version = "0.6", features = ["nightly"] }
 leptos_axum = { version = "0.6" }
 leptos-use = { version = "0.10.10" }
 
-axum = { version = "0.7", features = ["macros"] }
+axum = { version = "0.7", features = ["macros", "multipart", "http2"] }
 cfg-if = "1"
 console_error_panic_hook = "0.1.7"
 console_log = "1"
@@ -79,8 +79,9 @@ time = { version = "0.3" }
 tracing-journald = "0.3.0"
 
 unicase = "2.7.0"
+unicase_serde = "0.1.0"
 
-rustainers = "0.12.0"
+podman-api = "0.10"
 
 # See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
 
@@ -166,7 +167,7 @@ tailwind-input-file = "style/tailwind.css"
 tailwind-config-file = "tailwind.config.js"
 
 
-# bin-target-triple = "x86_64-unknown-linux-musl"
+bin-target-triple = "x86_64-unknown-linux-musl"
 
 
 bin-profile-release = "binrelease"

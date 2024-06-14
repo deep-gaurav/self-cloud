@@ -5,11 +5,14 @@ use app::{
     },
     App,
 };
-use axum::response::{IntoResponse, Response};
-use axum::{body::Body as AxumBody, Router};
+use axum::{body::Body as AxumBody, extract::DefaultBodyLimit, Router};
 use axum::{
     extract::{FromRef, Request, State},
     routing::get,
+};
+use axum::{
+    response::{IntoResponse, Response},
+    routing::post,
 };
 use leptos::{get_configuration, provide_context, LeptosOptions};
 use leptos_axum::{generate_route_list, handle_server_fns_with_context, LeptosRoutes};
@@ -25,6 +28,7 @@ use tracing::info;
 use crate::{
     auth::get_authorized_users,
     fileserv::file_and_error_handler,
+    image_uploader,
     tls_gen::{acme_handler, TLSState},
 };
 
@@ -102,6 +106,10 @@ async fn run_main(tls_state: TLSState) {
 
     // build our application with a route
     let app = Router::new()
+        .route(
+            "/cloud/image/push",
+            post(image_uploader::push_image).layer(DefaultBodyLimit::max(1024 * 1024 * 400)),
+        )
         .route(
             "/api/*fn_name",
             get(server_fn_handler).post(server_fn_handler),
