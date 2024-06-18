@@ -54,22 +54,36 @@ pub fn ProjectPage() -> impl IntoView {
 
     let project = create_resource(id, move |id| async move { get_project(id).await });
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, PartialEq)]
     struct ChildMenus<'a> {
         name: &'a str,
         path: &'a str,
     }
 
-    let menus = [
-        ChildMenus {
-            name: "General",
-            path: "",
-        },
-        ChildMenus {
-            name: "Domains",
-            path: "/domains",
-        },
-    ];
+    let menus = create_memo(move |_| {
+        let proj = project.get();
+        let is_project_container = proj
+            .and_then(|p| p.ok())
+            .map(|p| p.project_type.is_container())
+            .unwrap_or_default();
+        let mut pages = vec![
+            ChildMenus {
+                name: "General",
+                path: "",
+            },
+            ChildMenus {
+                name: "Domains",
+                path: "/domains",
+            },
+        ];
+        if is_project_container {
+            pages.push(ChildMenus {
+                name: "Container",
+                path: "/container",
+            });
+        }
+        pages
+    });
 
     provide_context(project);
 
@@ -96,14 +110,13 @@ pub fn ProjectPage() -> impl IntoView {
                             }
                         })
                 }}
-                <hr class="my-2"/>
-                <div class="flex flex-row gap-x-5">
+                <hr class="my-2"/> <div class="flex flex-row gap-x-5">
                     <div class="w-40">
 
-                        {menus
-                            .iter()
-                            .cloned()
-                            .map(|m| {
+                        <For
+                            each=move|| menus.get()
+                            key=|p|p.path
+                            children=move |m| {
                                 let is_active = create_memo(move |_| {
                                     use_route().child().map(|r| r.path()).unwrap_or_default()
                                         == format!("{}{}", use_route().path(), m.path)
@@ -119,8 +132,8 @@ pub fn ProjectPage() -> impl IntoView {
                                         )>{m.name}</span>
                                     </A>
                                 }
-                            })
-                            .collect::<Vec<_>>()}
+                            }
+                        />
 
                     </div>
 
@@ -219,6 +232,14 @@ pub fn ProjectSettings() -> impl IntoView {
         project.refetch();
     });
 
+    create_effect(move |p| {
+        let new_p = project.get();
+        if new_p != p.and_then(|p| p) {
+            set_edited_project_type(None);
+        }
+        new_p
+    });
+
     view! {
         <Transition>
             <div>
@@ -241,6 +262,7 @@ pub fn ProjectSettings() -> impl IntoView {
                                         ],
                                         p.1,
                                     )
+
                                     class=(
                                         ["text-black/60", "dark:text-white/60"],
                                         move || !p.1.get(),
@@ -272,6 +294,7 @@ pub fn ProjectSettings() -> impl IntoView {
                                                 project.get().and_then(|p| p.ok()).map(|p| p.id.to_string())
                                             }
                                         />
+
                                         <input
                                             name="port"
                                             prop:value=port.port
@@ -299,6 +322,7 @@ pub fn ProjectSettings() -> impl IntoView {
                                                 project.get().and_then(|p| p.ok()).map(|p| p.id.to_string())
                                             }
                                         />
+
                                         <div class="text-md">"Image"</div>
 
                                         <div class="h-4"></div>
@@ -320,14 +344,22 @@ pub fn ProjectSettings() -> impl IntoView {
                                         <div class="h-2"></div>
                                         <div class="text-md">"Assigned Domain"</div>
 
-                                        <select name="domain" class="p-2 bg-white border rounded-md">
-                                            {
-                                                move || domains.get().unwrap_or_default().iter().map(
-                                                    |domain| view! {
-                                                        <option value={domain.0}>{domain.0}</option>
-                                                    }
-                                                ).collect::<Vec<_>>()
-                                            }
+                                        <select
+                                            name="domain"
+                                            class="p-2 bg-white border rounded-md dark:bg-white/10 dark:border-white/5"
+                                        >
+
+                                            {move || {
+                                                domains
+                                                    .get()
+                                                    .unwrap_or_default()
+                                                    .iter()
+                                                    .map(|domain| {
+                                                        view! { <option value=domain.0>{domain.0}</option> }
+                                                    })
+                                                    .collect::<Vec<_>>()
+                                            }}
+
                                         </select>
 
                                         <div class="h-2"></div>
@@ -452,6 +484,7 @@ pub fn DomainsList() -> impl IntoView {
                                                         .unwrap_or_default()
                                                 },
                                             )
+
                                             class=(
                                                 "bg-yellow-500",
                                                 move || {
@@ -461,7 +494,8 @@ pub fn DomainsList() -> impl IntoView {
                                                         .unwrap_or_default()
                                                 },
                                             )
-                                        ></div>
+                                        >
+                                        </div>
 
                                         {move || match status
                                             .get()

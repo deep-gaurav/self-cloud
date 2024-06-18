@@ -1,15 +1,12 @@
 use std::sync::Arc;
 
-use app::common::{get_podman, ContainerStatus, Project, ProjectType, PROJECTS};
+use app::common::{get_docker, ContainerStatus, Project, ProjectType, PROJECTS};
+use docker_api::opts::{ContainerCreateOpts, ContainerRemoveOpts, ContainerStopOpts, PublishPort};
 use leptos::logging::warn;
 use pingora::{
     server::ShutdownWatch,
     services::background::{background_service, BackgroundService, GenBackgroundService},
     upstreams::peer::HttpPeer,
-};
-use podman_api::{
-    models::PortMapping,
-    opts::{ContainerCreateOpts, ContainerDeleteOpts, ContainerStopOpts},
 };
 use tracing::{error, info};
 
@@ -76,53 +73,44 @@ async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
                 .stop(&ContainerStopOpts::builder().build())
                 .await?;
         }
-        let podman = get_podman();
+        let docker = get_docker();
         let image_id = format!("selfcloud_image_{}:latest", project.id.to_string());
         info!("Running Image id {image_id}");
-        let image = podman.images().get(image_id);
-        let is_image_available = match image.exists().await {
-            Ok(result) => result,
-            Err(err) => {
-                warn!("Cant get image exists {err:?}");
-                return Err(err)?;
-            }
-        };
+        let image = docker.images().get(image_id);
+        let is_image_available = image.inspect().await.is_ok();
         info!("Is image available {is_image_available}");
         if is_image_available {
             let id = format!("selfcloud_container_{}_latest", project.id.to_string());
             info!("Stopping old container");
-            let _ = podman
+            let _ = docker
                 .containers()
                 .get(&id)
                 .stop(&ContainerStopOpts::builder().build())
                 .await;
             info!("Removing old container");
 
-            let _ = podman.containers().get(&id).remove().await;
+            let _ = docker
+                .containers()
+                .get(&id)
+                .remove(&ContainerRemoveOpts::builder().volumes(true).build())
+                .await;
 
             info!("Creating new container");
 
             let container = container.clone();
             let mut container_fut = tokio::spawn(async move {
-                let podman = get_podman();
-                podman
-                    .containers()
-                    .create(
-                        &ContainerCreateOpts::builder()
-                            .remove(true)
-                            .name(id)
-                            .image(image.id())
-                            .publish_image_ports(true)
-                            .portmappings(container.exposed_ports.iter().map(|p| PortMapping {
-                                container_port: Some(p.port),
-                                host_ip: None,
-                                host_port: None,
-                                protocol: None,
-                                range: None,
-                            }))
-                            .build(),
-                    )
-                    .await
+                let docker = get_docker();
+                let mut builder = ContainerCreateOpts::builder()
+                    .auto_remove(true)
+                    // .image_arch("amd64")
+                    .name(id)
+                    .image(image.name())
+                    .publish_all_ports();
+
+                for expose_port in container.exposed_ports.iter() {
+                    builder = builder.publish(PublishPort::tcp(expose_port.port as u32));
+                }
+                docker.containers().create(&builder.build()).await
             });
             let container = loop {
                 tokio::select! {
@@ -149,8 +137,9 @@ async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
             };
             info!("Container created, running");
 
-            let container = podman.containers().get(container.id);
-            container.start(None).await?;
+            let container = docker.containers().get(container.id().clone());
+            container.start().await?;
+            info!("Container started");
             let inspect = container.inspect().await?;
 
             {
@@ -159,6 +148,7 @@ async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
                 if let ProjectType::Container(cont) = &mut project.project_type {
                     if let Some(network) = inspect.network_settings {
                         if let Some(ports) = network.ports {
+                            tracing::info!("Container running with ports {ports:#?}");
                             for port in cont.exposed_ports.iter_mut() {
                                 let port_q = format!("{}/tcp", port.port);
                                 let exposed_port = ports.get(&port_q);

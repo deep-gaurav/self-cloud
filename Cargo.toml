@@ -81,7 +81,12 @@ tracing-journald = "0.3.0"
 unicase = "2.7.0"
 unicase_serde = "0.1.0"
 
-podman-api = "0.10"
+docker-api = { git = "https://github.com/vv9k/docker-api-rs" }
+docker-api-stubs = { git = "https://github.com/vv9k/docker-api-rs" }
+
+futures = "0.3.30"
+
+regex-macro = "0.2.0"
 
 # See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
 
@@ -167,7 +172,7 @@ tailwind-input-file = "style/tailwind.css"
 tailwind-config-file = "tailwind.config.js"
 
 
-bin-target-triple = "x86_64-unknown-linux-musl"
+# bin-target-triple = "x86_64-unknown-linux-musl"
 
 
 bin-profile-release = "binrelease"

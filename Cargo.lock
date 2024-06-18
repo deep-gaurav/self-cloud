@@ -141,6 +141,8 @@ dependencies = [
  "base64 0.22.1",
  "bincode",
  "cfg-if",
+ "docker-api",
+ "docker-api-stubs",
  "http 1.1.0",
  "leptos",
  "leptos-use",
@@ -149,7 +151,6 @@ dependencies = [
  "leptos_router",
  "once_cell",
  "pingora",
- "podman-api",
  "rand",
  "serde",
  "serde_json",
@@ -236,6 +237,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "asynchronous-codec"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4057f2c32adbb2fc158e22fb38433c8e9bbf76b75a4732c7c0cbaf695fb65568"
+dependencies = [
+ "bytes",
+ "futures-sink",
+ "futures-util",
+ "memchr",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -297,7 +311,7 @@ dependencies = [
  "async-trait",
  "axum-core",
  "axum-macros",
- "bytes 1.6.0",
+ "bytes",
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
@@ -331,7 +345,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a15c63fd72d41492dc4f497196f5da1fb04fb7529e631d73630d1b491e47a2e3"
 dependencies = [
  "async-trait",
- "bytes 1.6.0",
+ "bytes",
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
@@ -482,12 +496,6 @@ name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
-
-[[package]]
-name = "bytes"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
 
 [[package]]
 name = "bytes"
@@ -678,9 +686,9 @@ dependencies = [
 
 [[package]]
 name = "containers-api"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef94b0ff8338282b35bafb408eb0a3e53ba05bdb3b36840589ab9a67a6682593"
+checksum = "74a6c297451ce82117ff9090e5174bf18f86e6bcbfbfc3820246abbc4f44fa16"
 dependencies = [
  "chrono",
  "flate2",
@@ -691,7 +699,7 @@ dependencies = [
  "log",
  "mime",
  "paste",
- "pin-project 1.1.5",
+ "pin-project",
  "serde",
  "serde_json",
  "tar",
@@ -931,6 +939,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b42b6fa04a440b495c8b04d0e71b707c585f83cb9cb28cf8cd0d976c315e31b4"
 dependencies = [
  "powerfmt",
+ "serde",
 ]
 
 [[package]]
@@ -953,6 +962,41 @@ dependencies = [
  "block-buffer",
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "docker-api"
+version = "0.14.0"
+source = "git+https://github.com/vv9k/docker-api-rs#b1f1891d1d17cb522cc20212452c8c039c5e0810"
+dependencies = [
+ "asynchronous-codec",
+ "base64 0.13.1",
+ "byteorder",
+ "bytes",
+ "chrono",
+ "containers-api",
+ "docker-api-stubs",
+ "futures-util",
+ "http 0.2.12",
+ "hyper 0.14.29",
+ "log",
+ "paste",
+ "serde",
+ "serde_json",
+ "tar",
+ "thiserror",
+ "url",
+]
+
+[[package]]
+name = "docker-api-stubs"
+version = "0.6.0"
+source = "git+https://github.com/vv9k/docker-api-rs#b1f1891d1d17cb522cc20212452c8c039c5e0810"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "serde_with",
 ]
 
 [[package]]
@@ -1148,18 +1192,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "futures_codec"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce54d63f8b0c75023ed920d46fd71d0cbbb830b0ee012726b5b4f506fb6dea5b"
-dependencies = [
- "bytes 0.5.6",
- "futures",
- "memchr",
- "pin-project 0.4.30",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1280,7 +1312,7 @@ dependencies = [
  "gloo-utils 0.1.7",
  "http 0.2.12",
  "js-sys",
- "pin-project 1.1.5",
+ "pin-project",
  "serde",
  "serde_json",
  "thiserror",
@@ -1301,7 +1333,7 @@ dependencies = [
  "gloo-utils 0.2.0",
  "http 0.2.12",
  "js-sys",
- "pin-project 1.1.5",
+ "pin-project",
  "serde",
  "serde_json",
  "thiserror",
@@ -1406,7 +1438,7 @@ version = "0.3.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81fe527a889e1532da5c525686d96d4c2e74cdd345badf8dfef9f6b39dd5f5e8"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "fnv",
  "futures-core",
  "futures-sink",
@@ -1426,7 +1458,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa82e28a107a8cc405f0839610bdc9b15f1e25ec7d696aa5cf173edbcb1486ab"
 dependencies = [
  "atomic-waker",
- "bytes 1.6.0",
+ "bytes",
  "fnv",
  "futures-core",
  "futures-sink",
@@ -1542,7 +1574,7 @@ version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "601cbb57e577e2f5ef5be8e7b83f0f63994f25aa94d673e54a92d5c516d101f1"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "fnv",
  "itoa",
 ]
@@ -1553,7 +1585,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21b9ddb458710bc376481b842f5da65cdf31522de232c1ca8146abce2a358258"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "fnv",
  "itoa",
 ]
@@ -1564,7 +1596,7 @@ version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ceab25649e9960c0311ea418d17bee82c0dcec1bd053b5f9a66e265a693bed2"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "http 0.2.12",
  "pin-project-lite",
 ]
@@ -1575,7 +1607,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1cac85db508abc24a2e48553ba12a996e87244a0395ce011e62b37158745d643"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "http 1.1.0",
 ]
 
@@ -1585,7 +1617,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0475f8b2ac86659c21b64320d5d653f9efe42acd2a4e560073ec61a155a34f1d"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "futures-core",
  "http 1.1.0",
  "http-body 1.0.0",
@@ -1616,7 +1648,7 @@ version = "0.14.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f361cde2f109281a220d4307746cdfd5ee3f410da58a70377762396775634b33"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "futures-channel",
  "futures-core",
  "futures-util",
@@ -1640,7 +1672,7 @@ version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe575dd17d0862a9a33781c8c4696a55c320909004a67a00fb286ba8b1bc496d"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "futures-channel",
  "futures-util",
  "h2 0.4.5",
@@ -1675,7 +1707,7 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b875924a60b96e5d7b9ae7b066540b1dd1cbd90d1828f54c92e02a283351c56"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
@@ -1693,7 +1725,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hyper 0.14.29",
- "pin-project 1.1.5",
+ "pin-project",
  "tokio",
 ]
 
@@ -1744,6 +1776,7 @@ checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown 0.12.3",
+ "serde",
 ]
 
 [[package]]
@@ -2049,7 +2082,7 @@ dependencies = [
  "js-sys",
  "oco_ref",
  "paste",
- "pin-project 1.1.5",
+ "pin-project",
  "rustc-hash",
  "self_cell",
  "serde",
@@ -2291,7 +2324,7 @@ version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83e87776546dc87511aa5ee218730c92b666d7264ab6ed41f9d215af9cd5224b"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "encoding_rs",
  "futures-util",
  "http 1.1.0",
@@ -2509,31 +2542,11 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
 name = "pin-project"
-version = "0.4.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ef0f924a5ee7ea9cbcea77529dba45f8a9ba9f622419fe3386ca581a3ae9d5a"
-dependencies = [
- "pin-project-internal 0.4.30",
-]
-
-[[package]]
-name = "pin-project"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6bf43b791c5b9e34c3d182969b4abb522f9343702850a2e57f460d00d09b4b3"
 dependencies = [
- "pin-project-internal 1.1.5",
-]
-
-[[package]]
-name = "pin-project-internal"
-version = "0.4.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "851c8d0ce9bebe43790dedfc86614c23494ac9f423dd618d3a61fc693eafe61e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
+ "pin-project-internal",
 ]
 
 [[package]]
@@ -2582,7 +2595,7 @@ dependencies = [
  "ahash",
  "async-trait",
  "blake2",
- "bytes 1.6.0",
+ "bytes",
  "hex",
  "http 1.1.0",
  "httparse",
@@ -2616,7 +2629,7 @@ dependencies = [
  "ahash",
  "async-trait",
  "brotli 3.5.0",
- "bytes 1.6.0",
+ "bytes",
  "chrono",
  "daemonize",
  "flate2",
@@ -2667,7 +2680,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613872eb18f8af39895010b673829df2cda4767024c1e1303d4917bf50134d49"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "http 1.1.0",
  "httparse",
  "pingora-error",
@@ -2683,7 +2696,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf82e49fac35fab2e0accf87b3b761cff8ea768210408f0671fdf03e1eeaec48"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "http 1.1.0",
  "pingora-error",
 ]
@@ -2765,7 +2778,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42b42eedf1f3cab0497a7f63ddc1f57bb0ee3d8ba8ccbcd338e6b2e86712c9ca"
 dependencies = [
  "async-trait",
- "bytes 1.6.0",
+ "bytes",
  "futures",
  "h2 0.4.5",
  "http 1.1.0",
@@ -2812,42 +2825,6 @@ name = "pkg-config"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
-
-[[package]]
-name = "podman-api"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d0ade207138f12695cb4be3b590283f1cf764c5c4909f39966c4b4b0dba7c1e"
-dependencies = [
- "base64 0.13.1",
- "byteorder",
- "bytes 1.6.0",
- "chrono",
- "containers-api",
- "flate2",
- "futures-util",
- "futures_codec",
- "log",
- "paste",
- "podman-api-stubs",
- "serde",
- "serde_json",
- "tar",
- "thiserror",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "podman-api-stubs"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d280c623f633a0dded88feab9e387f98451506431d5b7308a858c643305dcee"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "polyval"
@@ -3087,6 +3064,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "regex-macro"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12fa36e7add16db296640bba993a65dae2a0088a8e5cd5f935c8bfbd3710145b"
+dependencies = [
+ "once_cell",
+ "regex",
+]
+
+[[package]]
 name = "regex-syntax"
 version = "0.6.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3105,7 +3092,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd67538700a17451e7cba03ac727fb961abb7607553461627b97de0b89cf4a62"
 dependencies = [
  "base64 0.21.7",
- "bytes 1.6.0",
+ "bytes",
  "encoding_rs",
  "futures-core",
  "futures-util",
@@ -3596,6 +3583,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_with"
+version = "2.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07ff71d2c147a7b57362cead5e22f772cd52f6ab31cfcd9edcd7f6aeb2a0afbe"
+dependencies = [
+ "base64 0.13.1",
+ "chrono",
+ "hex",
+ "indexmap 1.9.3",
+ "serde",
+ "serde_json",
+ "serde_with_macros",
+ "time",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "2.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "881b6f881b17d13214e5d494c939ebab463d01264ce1811e9d4ac3a882e7695f"
+dependencies = [
+ "darling 0.20.9",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
+]
+
+[[package]]
 name = "serde_yaml"
 version = "0.8.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3618,6 +3633,8 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bincode",
+ "docker-api",
+ "futures",
  "http 1.1.0",
  "instant-acme",
  "leptos",
@@ -3626,9 +3643,9 @@ dependencies = [
  "once_cell",
  "openssl",
  "pingora",
- "podman-api",
  "rand",
  "rcgen",
+ "regex-macro",
  "serde_json",
  "structopt",
  "tikv-jemallocator",
@@ -3651,7 +3668,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b06e6e5467a2cd93ce1accfdfd8b859404f0b3b2041131ffd774fabf666b8219"
 dependencies = [
  "axum",
- "bytes 1.6.0",
+ "bytes",
  "ciborium",
  "const_format",
  "dashmap",
@@ -4021,7 +4038,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba4f4a02a7a80d6f274636f0aa95c7e383b912d41fe721a31f29e29698585a4a"
 dependencies = [
  "backtrace",
- "bytes 1.6.0",
+ "bytes",
  "libc",
  "mio",
  "num_cpus",
@@ -4084,7 +4101,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2468baabc3311435b55dd935f702f42cd1b8abb7e754fb7dfb16bd36aa88f9f7"
 dependencies = [
  "async-stream",
- "bytes 1.6.0",
+ "bytes",
  "futures-core",
  "tokio",
  "tokio-stream",
@@ -4096,7 +4113,7 @@ version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9cf6b47b3771c49ac75ad09a6162f53ad4b8088b76ac60e8ec1455b31a189fe1"
 dependencies = [
- "bytes 1.6.0",
+ "bytes",
  "futures-core",
  "futures-sink",
  "futures-util",
@@ -4149,7 +4166,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "indexmap 1.9.3",
- "pin-project 1.1.5",
+ "pin-project",
  "pin-project-lite",
  "rand",
  "slab",
@@ -4186,7 +4203,7 @@ dependencies = [
  "async-compression",
  "base64 0.21.7",
  "bitflags 2.5.0",
- "bytes 1.6.0",
+ "bytes",
  "futures-core",
  "futures-util",
  "http 1.1.0",

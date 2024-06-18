@@ -12,6 +12,7 @@ use leptos_router::A;
 
 use crate::api::get_projects;
 
+pub mod container_page;
 pub mod project_page;
 
 #[component]

@@ -40,8 +40,8 @@ serde_json = { workspace = true, optional = true }
 unicase.workspace = true
 unicase_serde.workspace = true
 
-podman-api = { workspace = true, optional = true }
-
+docker-api = { workspace = true, optional = true }
+docker-api-stubs = { workspace = true }
 
 [features]
 default = []
@@ -62,5 +62,5 @@ ssr = [
     "dep:base64",
     "dep:time",
     "dep:serde_json",
-    "dep:podman-api",
+    "dep:docker-api",
 ]

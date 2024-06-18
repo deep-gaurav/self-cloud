@@ -8,6 +8,24 @@ use crate::common::{
     Container, DomainStatusFields, ExposedPort, PortForward, Project, ProjectType,
 };
 
+#[server(InspectContainer)]
+pub async fn inspect_container(
+    id: Uuid,
+) -> Result<docker_api_stubs::models::ContainerInspect200Response, ServerFnError> {
+    user()?;
+    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    if let ProjectType::Container(container) = &project.project_type {
+        if let crate::common::ContainerStatus::Running(container) = &container.status {
+            let inspect = container.inspect().await?;
+            Ok(inspect)
+        } else {
+            Err(ServerFnError::new("container not running"))
+        }
+    } else {
+        Err(ServerFnError::new("project doesnt have container"))
+    }
+}
+
 #[server(AddProject)]
 pub async fn add_project(name: String) -> Result<Project, ServerFnError> {
     use crate::common::PROJECTS;

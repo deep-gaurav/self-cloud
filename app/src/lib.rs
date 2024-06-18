@@ -7,6 +7,7 @@ use crate::{
 
 use crate::pages::dashboard::Dashboard;
 use crate::pages::home::HomePage;
+use crate::pages::project::container_page::ContainerPage;
 use crate::pages::project::{project_page::ProjectPage, ProjectsHome, ProjectsList};
 
 use leptos::*;
@@ -63,6 +64,7 @@ pub fn App() -> impl IntoView {
                             <Route path=":id" view=ProjectPage>
                                 <Route path="" view=ProjectSettings/>
                                 <Route path="domains" view=DomainsList/>
+                                <Route path="container" view=ContainerPage/>
                             </Route>
                         </Route>
                     </Route>

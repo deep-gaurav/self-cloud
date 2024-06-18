@@ -1,12 +1,16 @@
-use std::sync::Arc;
+use std::{
+    io::{BufReader, Cursor},
+    sync::Arc,
+};
 
-use app::common::{get_podman, ContainerStatus, ProjectType, PROJECTS};
+use app::common::{get_docker, ContainerStatus, ProjectType, PROJECTS};
 use axum::{
     extract::Multipart,
     response::{IntoResponse, Response},
 };
+use docker_api::opts::TagOpts;
+use futures::stream::StreamExt;
 use http::StatusCode;
-use podman_api::opts::{ImageImportOpts, ImageTagOpts};
 use tracing::{info, warn};
 use uuid::Uuid;
 
@@ -35,8 +39,44 @@ pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String)
                 let data = field.bytes().await?;
                 let id = format!("selfcloud_image_{}", project_id.to_string());
                 info!("Uploading image to {id}");
-                let podman = get_podman();
-                let image = podman.images().load(data).await;
+                let docker = get_docker();
+                let reader = Cursor::new(data);
+                let image = 'ba: {
+                    let images = docker.images();
+                    let mut stream = images.import(reader);
+                    while let Some(data) = stream.next().await {
+                        match data {
+                            Ok(data) => match data {
+                                docker_api::models::ImageBuildChunk::Update { stream } => {
+                                    let reg = regex_macro::regex!(r"(?m)Loaded image: (.*)");
+                                    let capture = reg.captures(&stream).and_then(|c| c.get(1));
+                                    if let Some(capture) = capture {
+                                        break 'ba Ok(capture.as_str().to_string());
+                                    }
+                                }
+                                docker_api::models::ImageBuildChunk::Error {
+                                    error,
+                                    error_detail,
+                                } => {
+                                    break 'ba Err(docker_api::Error::Any("failed".into()));
+                                }
+                                docker_api::models::ImageBuildChunk::Digest { aux } => {
+                                    break 'ba Ok(aux.id.to_string());
+                                }
+                                docker_api::models::ImageBuildChunk::PullStatus {
+                                    status,
+                                    id,
+                                    progress,
+                                    progress_detail,
+                                } => {}
+                            },
+                            Err(err) => {
+                                break 'ba Err(err);
+                            }
+                        }
+                    }
+                    Err(docker_api::Error::Any("failed".into()))
+                };
                 let image = match image {
                     Ok(image) => image,
                     Err(err) => {
@@ -44,19 +84,16 @@ pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String)
                         return Err(err)?;
                     }
                 };
-                let tag = image
-                    .names
-                    .and_then(|s| s.first().map(|p| p.to_string()))
-                    .ok_or(anyhow::anyhow!("No imported tag"))?;
-                let image = podman.images().get(tag);
+                let tag = image;
+                let image = docker.images().get(tag);
                 if let Err(err) = image
-                    .tag(&ImageTagOpts::builder().repo(id).tag("latest").build())
+                    .tag(&TagOpts::builder().repo(id).tag("latest").build())
                     .await
                 {
                     warn!("Cannot tag image {err:?}")
                 }
 
-                info!("Loaded podman image {image:?}");
+                info!("Loaded docker image {image:?}");
                 {
                     let mut projects = PROJECTS.write().await;
                     let project = projects.get(&project_id);

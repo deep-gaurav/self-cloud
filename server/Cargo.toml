@@ -49,8 +49,11 @@ tracing-journald.workspace = true
 time.workspace = true
 http.workspace = true
 unicase.workspace = true
+futures.workspace = true
 
-podman-api.workspace = true
+regex-macro.workspace = true
+
+docker-api.workspace = true
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.5"

@@ -25,7 +25,7 @@ pub static DOMAIN_MAPPING: once_cell::sync::Lazy<
     std::sync::RwLock::new(peers)
 });
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, PartialEq)]
 pub struct Project {
     pub id: Uuid,
     pub name: String,
@@ -123,7 +123,7 @@ pub enum ContainerStatus {
     None,
     Creating,
     Failed,
-    Running(Arc<podman_api::api::Container>),
+    Running(Arc<docker_api::api::Container>),
 }
 
 #[cfg(feature = "ssr")]
@@ -582,8 +582,8 @@ pub fn get_home_path() -> std::path::PathBuf {
 }
 
 #[cfg(feature = "ssr")]
-pub fn get_podman() -> podman_api::Podman {
-    let sock = std::env::var("PODMAN_SOCK").expect("PODMAN_SOCK var not set");
+pub fn get_docker() -> docker_api::Docker {
+    let sock = std::env::var("DOCKER_SOCK").expect("DOCKER_SOCK var not set");
 
-    podman_api::Podman::unix(sock)
+    docker_api::Docker::unix(sock)
 }
