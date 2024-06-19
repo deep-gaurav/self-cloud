@@ -60,31 +60,6 @@ pub fn ProjectPage() -> impl IntoView {
         path: &'a str,
     }
 
-    let menus = create_memo(move |_| {
-        let proj = project.get();
-        let is_project_container = proj
-            .and_then(|p| p.ok())
-            .map(|p| p.project_type.is_container())
-            .unwrap_or_default();
-        let mut pages = vec![
-            ChildMenus {
-                name: "General",
-                path: "",
-            },
-            ChildMenus {
-                name: "Domains",
-                path: "/domains",
-            },
-        ];
-        if is_project_container {
-            pages.push(ChildMenus {
-                name: "Container",
-                path: "/container",
-            });
-        }
-        pages
-    });
-
     provide_context(project);
 
     provide_context(id);
@@ -92,7 +67,6 @@ pub fn ProjectPage() -> impl IntoView {
     view! {
         <Transition>
             <div class="p-4">
-
                 {move || {
                     project
                         .get()
@@ -114,7 +88,30 @@ pub fn ProjectPage() -> impl IntoView {
                     <div class="w-40">
 
                         <For
-                            each=move|| menus.get()
+                            each=move|| {
+                                let proj = project.get();
+                                let is_project_container = proj
+                                    .and_then(|p| p.ok())
+                                    .map(|p| p.project_type.is_container())
+                                    .unwrap_or_default();
+                                let mut pages = vec![
+                                    ChildMenus {
+                                        name: "General",
+                                        path: "",
+                                    },
+                                    ChildMenus {
+                                        name: "Domains",
+                                        path: "/domains",
+                                    },
+                                ];
+                                if is_project_container {
+                                    pages.push(ChildMenus {
+                                        name: "Container",
+                                        path: "/container",
+                                    });
+                                }
+                                pages
+                            }
                             key=|p|p.path
                             children=move |m| {
                                 let is_active = create_memo(move |_| {
