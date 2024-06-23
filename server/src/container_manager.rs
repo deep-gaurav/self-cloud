@@ -77,99 +77,122 @@ async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
         let image_id = format!("selfcloud_image_{}:latest", project.id.to_string());
         info!("Running Image id {image_id}");
         let image = docker.images().get(image_id);
-        let is_image_available = image.inspect().await.is_ok();
-        info!("Is image available {is_image_available}");
-        if is_image_available {
+        let image_inspect = image.inspect().await;
+        // info!("Is image available {is_image_available}");
+        if let Ok(image_inspect) = image_inspect {
             let id = format!("selfcloud_container_{}_latest", project.id.to_string());
-            info!("Stopping old container");
-            let _ = docker
-                .containers()
-                .get(&id)
-                .stop(&ContainerStopOpts::builder().build())
-                .await;
-            info!("Removing old container");
+            let docker_container = docker.containers().get(&id);
+            let inspect = docker_container.inspect().await;
 
-            let _ = docker
-                .containers()
-                .get(&id)
-                .remove(&ContainerRemoveOpts::builder().volumes(true).build())
-                .await;
-
-            info!("Creating new container");
-
-            let container = container.clone();
-            let mut container_fut = tokio::spawn(async move {
-                let docker = get_docker();
-                let mut builder = ContainerCreateOpts::builder()
-                    .auto_remove(true)
-                    // .image_arch("amd64")
-                    .name(id)
-                    .image(image.name())
-                    .publish_all_ports();
-
-                for expose_port in container.exposed_ports.iter() {
-                    builder = builder.publish(PublishPort::tcp(expose_port.port as u32));
+            let mut running_container = if let Ok(inspect) = inspect {
+                info!("Container exists with id {:?}", inspect.image);
+                info!("Image id {:?}", image_inspect.id);
+                if image_inspect.id == inspect.image {
+                    Some(docker_container)
+                } else {
+                    None
                 }
-                docker.containers().create(&builder.build()).await
-            });
-            let container = loop {
-                tokio::select! {
-                    _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
-                        info!("Container creator is running...");
+            } else {
+                None
+            };
+
+            if running_container.is_none() {
+                info!("Stopping old container");
+                let _ = docker
+                    .containers()
+                    .get(&id)
+                    .stop(&ContainerStopOpts::builder().build())
+                    .await;
+                info!("Removing old container");
+
+                let _ = docker
+                    .containers()
+                    .get(&id)
+                    .remove(&ContainerRemoveOpts::builder().volumes(true).build())
+                    .await;
+
+                info!("Creating new container");
+
+                let container = container.clone();
+                let mut container_fut = tokio::spawn(async move {
+                    let docker = get_docker();
+                    let mut builder = ContainerCreateOpts::builder()
+                        .auto_remove(true)
+                        // .image_arch("amd64")
+                        .name(id)
+                        .image(image.name())
+                        .publish_all_ports();
+
+                    for expose_port in container.exposed_ports.iter() {
+                        builder = builder.publish(PublishPort::tcp(expose_port.port as u32));
                     }
-                    result = &mut container_fut => {
-                        match result {
-                            Ok(result) => match result {
-                                Ok(container) => break container,
+                    docker.containers().create(&builder.build()).await
+                });
+                let container = loop {
+                    tokio::select! {
+                        _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
+                            info!("Container creator is running...");
+                        }
+                        result = &mut container_fut => {
+                            match result {
+                                Ok(result) => match result {
+                                    Ok(container) => break container,
+                                    Err(err) => {
+                                        warn!("Failed to create container {err:?}");
+                                        return Err(err)?;
+                                    }
+                                },
                                 Err(err) => {
                                     warn!("Failed to create container {err:?}");
                                     return Err(err)?;
-                                }
-                            },
-                            Err(err) => {
-                                warn!("Failed to create container {err:?}");
-                                return Err(err)?;
-                            },
+                                },
+                            }
+
                         }
-
                     }
-                }
-            };
-            info!("Container created, running");
+                };
+                info!("Container created, running");
 
-            let container = docker.containers().get(container.id().clone());
-            container.start().await?;
-            info!("Container started");
-            let inspect = container.inspect().await?;
+                let container = docker.containers().get(container.id().clone());
+                container.start().await?;
+                info!("Container started");
 
-            {
-                let mut projects = PROJECTS.write().await;
-                let mut project = project.as_ref().clone();
-                if let ProjectType::Container(cont) = &mut project.project_type {
-                    if let Some(network) = inspect.network_settings {
-                        if let Some(ports) = network.ports {
-                            tracing::info!("Container running with ports {ports:#?}");
-                            for port in cont.exposed_ports.iter_mut() {
-                                let port_q = format!("{}/tcp", port.port);
-                                let exposed_port = ports.get(&port_q);
-                                if let Some(host_port) = exposed_port
-                                    .and_then(|p| p.to_owned())
-                                    .and_then(|p| p.first().cloned())
-                                    .and_then(|p| p.host_port)
-                                    .and_then(|p| p.parse::<u16>().ok())
-                                {
-                                    port.peer = Some(Box::new(HttpPeer::new(
-                                        format!("0.0.0.0:{host_port}"),
-                                        false,
-                                        String::new(),
-                                    )))
+                running_container = Some(container)
+            }
+            if let Some(container) = running_container {
+                let inspect = container.inspect().await?;
+
+                {
+                    let mut projects = PROJECTS.write().await;
+                    let mut project = project.as_ref().clone();
+                    if let ProjectType::Container(cont) = &mut project.project_type {
+                        if let Some(network) = inspect.network_settings {
+                            if let Some(ports) = network.ports {
+                                tracing::info!("Container running with ports {ports:#?}");
+                                for port in cont.exposed_ports.iter_mut() {
+                                    let port_q = format!("{}/tcp", port.port);
+                                    let exposed_port = ports.get(&port_q);
+                                    if let Some(host_port) = exposed_port
+                                        .and_then(|p| p.to_owned())
+                                        .and_then(|p| p.first().cloned())
+                                        .and_then(|p| p.host_port)
+                                        .and_then(|p| p.parse::<u16>().ok())
+                                    {
+                                        port.peer = Some(Box::new(HttpPeer::new(
+                                            format!("0.0.0.0:{host_port}"),
+                                            false,
+                                            String::new(),
+                                        )))
+                                    }
                                 }
                             }
                         }
+                        cont.status = ContainerStatus::Running(Arc::new(container));
                     }
-                    cont.status = ContainerStatus::Running(Arc::new(container));
+                    projects.insert(project.id, Arc::new(project));
                 }
-                projects.insert(project.id, Arc::new(project));
+            } else {
+                warn!("Container not running")
             }
         } else {
             info!("No image found")

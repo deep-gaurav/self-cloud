@@ -1,6 +1,8 @@
 use std::collections::BinaryHeap;
+use std::collections::HashMap;
 
 use leptos::create_effect;
+use leptos::create_local_resource;
 use leptos::create_memo;
 use leptos::create_server_action;
 use leptos::create_signal;
@@ -14,12 +16,16 @@ use leptos::Params;
 use leptos::Resource;
 use leptos::ServerFnError;
 use leptos::SignalGet;
+use leptos::SignalGetUntracked;
+use leptos::SignalSet;
 use leptos::SignalWith;
+use leptos::SignalWithUntracked;
 use leptos::Transition;
 use leptos::{component, create_resource, view, IntoView};
 use leptos_router::use_params;
 use leptos_router::use_route;
 use leptos_router::ActionForm;
+use leptos_router::IntoParam;
 use leptos_router::Outlet;
 use leptos_router::Params;
 use leptos_router::A;
@@ -37,22 +43,27 @@ use crate::common::Container;
 use crate::common::PortForward;
 use crate::common::Project;
 use crate::common::ProjectType;
+use crate::common::Token;
+use crate::utils::random_ascii_string;
 use leptos_router::Redirect;
 
 #[derive(Params, PartialEq)]
 struct ProjectParams {
-    id: Uuid,
+    id: Option<Uuid>,
 }
 
 #[component]
 pub fn ProjectPage() -> impl IntoView {
     let params = use_params::<ProjectParams>();
 
-    let id = create_memo(move |_| {
-        params.with(|params| params.as_ref().map(|param| param.id).unwrap_or_default())
+    let id = params.with_untracked(|params| {
+        params
+            .as_ref()
+            .map(|param| param.id.unwrap_or_default())
+            .unwrap_or_default()
     });
 
-    let project = create_resource(id, move |id| async move { get_project(id).await });
+    let project = create_resource(|| {}, move |_| async move { get_project(id).await });
 
     #[derive(Clone, Copy, PartialEq)]
     struct ChildMenus<'a> {
@@ -144,9 +155,9 @@ pub fn ProjectPage() -> impl IntoView {
 }
 
 pub fn ProjectSettings() -> impl IntoView {
-    let id = expect_context::<Memo<Uuid>>();
+    let id = expect_context::<Uuid>();
 
-    let project = expect_context::<Resource<Uuid, Result<Project, ServerFnError>>>();
+    let project = expect_context::<Resource<(), Result<Project, ServerFnError>>>();
 
     let project_type =
         create_memo(move |_| project.get().and_then(|p| p.ok()).map(|p| p.project_type));
@@ -199,6 +210,7 @@ pub fn ProjectSettings() -> impl IntoView {
                             exposed_ports: vec![],
                             #[cfg(feature = "ssr")]
                             status: crate::common::ContainerStatus::None,
+                            tokens: HashMap::new(),
                         }))
                     }
                 })
@@ -210,15 +222,10 @@ pub fn ProjectSettings() -> impl IntoView {
     let update_image_action = create_server_action::<UpdateProjectImage>();
 
     let domains = create_resource(
-        move || {
-            // add_domain_action.version().get();
-            id.get()
-        },
-        move |id| async move {
+        move || {},
+        move |_| async move {
             let result = get_project_domains(id).await;
             let mut result = result.unwrap_or_default();
-
-            // result.sort_by_key(|p| p.0.to_string());
             result
         },
     );
@@ -232,7 +239,7 @@ pub fn ProjectSettings() -> impl IntoView {
     create_effect(move |p| {
         let new_p = project.get();
         if new_p != p.and_then(|p| p) {
-            set_edited_project_type(None);
+            set_edited_project_type.set(None);
         }
         new_p
     });
@@ -244,7 +251,7 @@ pub fn ProjectSettings() -> impl IntoView {
                 <div class="h-2"></div>
                 <div class="flex gap-3">
 
-                    {project_types
+                    {move || project_types
                         .into_iter()
                         .map(|p| {
                             view! {
@@ -265,7 +272,7 @@ pub fn ProjectSettings() -> impl IntoView {
                                         move || !p.1.get(),
                                     )
 
-                                    on:click=move |_| { set_edited_project_type(p.2.get()) }
+                                    on:click=move |_| { set_edited_project_type.set(p.2.get()) }
                                 >
 
                                     {p.0}
@@ -309,7 +316,8 @@ pub fn ProjectSettings() -> impl IntoView {
                                     .into_view()
                             }
                             ProjectType::Container(container) => {
-                                let c = container.clone();
+
+                                let (tokens, set_tokens) = create_signal(container.tokens);
                                 view! {
                                     <ActionForm action=update_image_action>
                                         <input
@@ -346,20 +354,89 @@ pub fn ProjectSettings() -> impl IntoView {
                                             class="p-2 bg-white border rounded-md dark:bg-white/10 dark:border-white/5"
                                         >
 
+                                            <option value="">"None"</option>
+
                                             {move || {
                                                 domains
                                                     .get()
                                                     .unwrap_or_default()
                                                     .iter()
                                                     .map(|domain| {
-                                                        view! { <option value=domain.0>{domain.0}</option> }
+                                                        view! { <option value=domain.0 >{domain.0}</option> }
                                                     })
                                                     .collect::<Vec<_>>()
                                             }}
 
                                         </select>
 
-                                        <div class="h-2"></div>
+                                        <div class="h-4"></div>
+
+                                        <div class="text-md">"Tokens"</div>
+                                        <div class="" >
+                                            <For
+                                                each=move||tokens.get().into_iter()
+                                                key=|p|p.0.clone()
+                                                children=move |(index, token)| {
+                                                    let token_id = index.clone();
+                                                    view!{
+                                                        <div class="flex flex-col gap-4 p-2 border dark:border-white/20 m-2 rounded">
+                                                            <div class=" flex flex-col">
+                                                                <label for="token" class="text-sm dark:text-white/50">Token</label>
+                                                                <input prop:value={&token.token} type="hidden" name={format!("tokens[{index}][token]")} required
+                                                                    class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                />
+                                                                <input prop:value={&token.token} disabled type="text" id="token" required
+                                                                    class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                />
+                                                            </div>
+                                                            <div class="flex gap-4 flex-wrap">
+
+                                                                <div class=" flex flex-col">
+                                                                    <label for="description" class="text-sm dark:text-white/50" >Description</label>
+                                                                    <input prop:value={&token.description} type="text" id="description" name={format!("tokens[{index}][description]")} required
+                                                                        class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                    />
+                                                                </div>
+
+                                                                <div class=" flex flex-col">
+                                                                    <label for="expiry" class="text-sm dark:text-white/50" >Expiry</label>
+                                                                    <input type="date" prop:value={token.expiry.map(|e|e.to_string()).unwrap_or_default()} id="expiry" name={format!("tokens[{index}][expiry]")}
+                                                                        class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                    />
+                                                                </div>
+
+                                                                <button
+                                                                    class="p-2 rounded bg-red-700 px-6 text-white mt-5"
+                                                                    on:click=move|_|{
+                                                                        let mut tokens = tokens.get_untracked();
+                                                                        tokens.remove(&token_id);
+                                                                        set_tokens.set(tokens)
+                                                                    }
+                                                                > "Delete Token" </button>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                }
+                                            />
+                                            <button
+                                                class="p-2 rounded border bg-white/90 px-6 text-black"
+                                                on:click=move|_|{
+                                                    let new_token = Token{
+                                                        expiry:None,
+                                                        description: String::new(),
+                                                        token: random_ascii_string(20)
+                                                    };
+                                                    let mut tokens = tokens.get_untracked();
+                                                    tokens.insert(new_token.token.clone(),new_token);
+                                                    set_tokens.set(
+                                                        tokens
+                                                    );
+                                                }
+                                            > "Generate new Token" </button>
+                                        </div>
+
+                                        <div class="h-4"></div>
+
                                         <input
                                             type="submit"
                                             value="Update"
@@ -380,15 +457,12 @@ pub fn ProjectSettings() -> impl IntoView {
 }
 
 pub fn DomainsList() -> impl IntoView {
-    let id = expect_context::<Memo<Uuid>>();
+    let id = expect_context::<Uuid>();
     let add_domain_action = create_server_action::<AddProjectDomain>();
 
     let domains = create_resource(
-        move || {
-            // add_domain_action.version().get();
-            id.get()
-        },
-        move |id| async move {
+        move || {},
+        move |_| async move {
             let result = get_project_domains(id).await;
             let mut result = result.unwrap_or_default();
 
@@ -412,7 +486,7 @@ pub fn DomainsList() -> impl IntoView {
 
     create_effect(move |_| {
         add_domain_action.value().get();
-        set_new_domain(String::new());
+        set_new_domain.set(String::new());
         domains.refetch();
     });
 
@@ -422,14 +496,14 @@ pub fn DomainsList() -> impl IntoView {
         <div class="p-2">
             <ActionForm action=add_domain_action>
                 <div class="w-full rounded-md flex gap-5">
-                    <input type="hidden" name="id" prop:value=move || id.get().to_string()/>
+                    <input type="hidden" name="id" prop:value=id.to_string()/>
                     <input
                         name="domain"
                         id="domain"
                         placeholder="example.com"
                         class="p-2 border w-full rounded bg-white dark:bg-white/10 dark:border-white/5"
                         on:input=move |ev| {
-                            set_new_domain(event_target_value(&ev));
+                            set_new_domain.set(event_target_value(&ev));
                         }
 
                         prop:value=new_domain

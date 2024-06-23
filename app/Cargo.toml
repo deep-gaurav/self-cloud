@@ -29,7 +29,7 @@ tracing.workspace = true
 tower-cookies = { workspace = true, optional = true }
 
 aes-gcm-siv = { workspace = true, optional = true }
-rand = { workspace = true, optional = true }
+rand = { workspace = true }
 
 bincode = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
@@ -42,6 +42,8 @@ unicase_serde.workspace = true
 
 docker-api = { workspace = true, optional = true }
 docker-api-stubs = { workspace = true }
+
+chrono.workspace = true
 
 [features]
 default = []
@@ -57,7 +59,6 @@ ssr = [
     "dep:tokio",
     "dep:tower-cookies",
     "dep:aes-gcm-siv",
-    "dep:rand",
     "dep:bincode",
     "dep:base64",
     "dep:time",

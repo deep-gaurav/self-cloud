@@ -30,11 +30,33 @@ pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String)
             "project_id" => project_id = Some(Uuid::parse_str(field.text().await?.as_str())?),
 
             "image" => {
-                if token.is_none() {
+                let Some(token) = token else {
                     return Ok((StatusCode::BAD_REQUEST, format!("No Upload Token")));
-                }
+                };
                 let Some(project_id) = project_id else {
                     return Ok((StatusCode::BAD_REQUEST, format!("No Project Id")));
+                };
+
+                {
+                    let mut projects = PROJECTS.read().await;
+                    let project = projects
+                        .get(&project_id)
+                        .ok_or(anyhow::anyhow!("project with given id not present"))?;
+
+                    if let ProjectType::Container(container) = &project.project_type {
+                        if let Some(token) = container.tokens.get(&token) {
+                            if let Some(expiry) = &token.expiry {
+                                let current_date = chrono::Utc::now().naive_utc().date();
+                                if &current_date > expiry {
+                                    return Err(anyhow::anyhow!("Project token not valid").into());
+                                }
+                            }
+                        } else {
+                            return Err(anyhow::anyhow!("Project token not valid").into());
+                        }
+                    } else {
+                        return Err(anyhow::anyhow!("Project not of type container").into());
+                    }
                 };
                 let data = field.bytes().await?;
                 let id = format!("selfcloud_image_{}", project_id.to_string());

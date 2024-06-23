@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     str::FromStr,
     sync::{Arc, Weak},
 };
@@ -112,9 +113,17 @@ impl ProjectType {
 #[derive(Serialize, Clone)]
 pub struct Container {
     pub exposed_ports: Vec<ExposedPort>,
+    pub tokens: HashMap<String, Token>,
     #[cfg(feature = "ssr")]
     #[serde(skip)]
     pub status: ContainerStatus,
+}
+
+#[derive(Serialize, Clone, PartialEq, Deserialize, Debug)]
+pub struct Token {
+    pub token: String,
+    pub expiry: Option<chrono::NaiveDate>,
+    pub description: String,
 }
 
 #[derive(Clone)]
@@ -204,6 +213,7 @@ impl<'de> Deserialize<'de> for Container {
         #[derive(Clone, Deserialize)]
         pub struct TmpContainer {
             pub exposed_ports: Vec<ExposedPort>,
+            pub tokens: HashMap<String, Token>,
         }
 
         let d = TmpContainer::deserialize(deserializer)?;
@@ -212,6 +222,7 @@ impl<'de> Deserialize<'de> for Container {
         {
             Ok(Container {
                 exposed_ports: d.exposed_ports,
+                tokens: d.tokens,
             })
         }
 
@@ -220,6 +231,7 @@ impl<'de> Deserialize<'de> for Container {
             Ok(Container {
                 exposed_ports: d.exposed_ports,
                 status: ContainerStatus::None,
+                tokens: d.tokens,
             })
         }
     }

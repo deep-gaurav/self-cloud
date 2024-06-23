@@ -3,18 +3,19 @@ use leptos::{
     IntoView, Transition,
 };
 use leptos_use::{use_interval_fn, utils::Pausable};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::api::inspect_container;
 
 pub fn ContainerPage() -> impl IntoView {
-    let id = expect_context::<Memo<Uuid>>();
+    let id = expect_context::<Uuid>();
 
     let container = create_resource(
-        move || id.get(),
+        move || id,
         move |id| async move {
             let result = inspect_container(id).await;
-            let mut result = result.ok();
+
             result
         },
     );
@@ -35,9 +36,30 @@ pub fn ContainerPage() -> impl IntoView {
 
         <Transition>
            {
-                view! {
-                    <div> Running { move || container.get().and_then(|p|p).is_some()} </div>
+                let container = create_memo(move |_| container.get());
+                let is_running = create_memo(move |_| container.get().map(|r|r.is_ok()).unwrap_or(false));
+                move || if is_running.get() {
+                    let container = move || container.get().unwrap().unwrap();
+                    view! {
+                        <div class="p-2 flex gap-2 items-center">
+                            <div class="text-lg "> "Status" </div>
+                            <div class="text-sm px-6 py-1 rounded-full bg-slate-400 text-black"> {
+                                move || {
+                                    container()
+                                            .state.and_then(|s|s.status).unwrap_or("Unknown".to_string())
+                                }
+                            } </div>
+                        </div>
+                    }.into_view()
+
+                }else {
+                    view! {
+                        <div>
+                            "Failed to load container status"
+                        </div>
+                    }.into_view()
                 }
+
            }
 
         </Transition>

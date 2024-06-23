@@ -5,7 +5,7 @@ use leptos::{expect_context, server, use_context, ServerFnError};
 use uuid::Uuid;
 
 use crate::common::{
-    Container, DomainStatusFields, ExposedPort, PortForward, Project, ProjectType,
+    Container, DomainStatusFields, ExposedPort, PortForward, Project, ProjectType, Token,
 };
 
 #[server(InspectContainer)]
@@ -168,21 +168,28 @@ pub async fn update_project_image(
     id: Uuid,
     container_port: u16,
     domain: String,
+    tokens: Option<HashMap<String, Token>>,
 ) -> Result<(), ServerFnError> {
     user()?;
 
+    tracing::info!("Received tokens {:?}", tokens);
     let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
 
     let new_project = Project {
         project_type: ProjectType::Container(Container {
             exposed_ports: vec![ExposedPort {
                 port: container_port,
-                domains: vec![crate::common::Domain {
-                    name: unicase::UniCase::from(domain),
-                }],
+                domains: if domain.is_empty() {
+                    vec![]
+                } else {
+                    vec![crate::common::Domain {
+                        name: unicase::UniCase::from(domain),
+                    }]
+                },
                 #[cfg(feature = "ssr")]
                 peer: None,
             }],
+            tokens: tokens.unwrap_or_default(),
             status: crate::common::ContainerStatus::None,
         }),
         ..project.as_ref().clone()
@@ -206,7 +213,7 @@ pub fn user() -> Result<crate::auth::User, ServerFnError> {
     use http::StatusCode;
     use leptos_axum::ResponseOptions;
 
-    let auth = expect_context::<AuthType>();
+    let auth = use_context::<AuthType>().ok_or(ServerFnError::new("User Not present"))?;
 
     match auth {
         AuthType::UnAuthorized => {

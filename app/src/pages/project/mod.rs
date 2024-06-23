@@ -4,6 +4,7 @@ use leptos::create_server_action;
 use leptos::create_signal;
 use leptos::event_target_value;
 use leptos::SignalGet;
+use leptos::SignalSet;
 use leptos::Suspense;
 use leptos::{component, create_resource, view, IntoView};
 use leptos_router::ActionForm;
@@ -29,7 +30,7 @@ pub fn ProjectsList() -> impl IntoView {
 
     create_effect(move |_| {
         add_new_project.value().get();
-        set_new_project_name(String::new());
+        set_new_project_name.set(String::new());
         projects.refetch();
     });
 
@@ -45,7 +46,7 @@ pub fn ProjectsList() -> impl IntoView {
                         placeholder="New Project name"
                         class="p-2 border w-full rounded bg-white dark:bg-white/10 dark:border-white/5"
                         on:input=move |ev| {
-                            set_new_project_name(event_target_value(&ev));
+                            set_new_project_name.set(event_target_value(&ev));
                         }
 
                         prop:value=new_project_name

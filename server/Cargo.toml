@@ -55,5 +55,7 @@ regex-macro.workspace = true
 
 docker-api.workspace = true
 
+chrono.workspace = true
+
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.5"
