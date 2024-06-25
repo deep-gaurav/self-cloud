@@ -99,7 +99,7 @@ pub fn ProjectPage() -> impl IntoView {
                     <div class="w-40">
 
                         <For
-                            each=move|| {
+                            each=move || {
                                 let proj = project.get();
                                 let is_project_container = proj
                                     .and_then(|p| p.ok())
@@ -116,14 +116,16 @@ pub fn ProjectPage() -> impl IntoView {
                                     },
                                 ];
                                 if is_project_container {
-                                    pages.push(ChildMenus {
-                                        name: "Container",
-                                        path: "/container",
-                                    });
+                                    pages
+                                        .push(ChildMenus {
+                                            name: "Container",
+                                            path: "/container",
+                                        });
                                 }
                                 pages
                             }
-                            key=|p|p.path
+
+                            key=|p| p.path
                             children=move |m| {
                                 let is_active = create_memo(move |_| {
                                     use_route().child().map(|r| r.path()).unwrap_or_default()
@@ -251,35 +253,37 @@ pub fn ProjectSettings() -> impl IntoView {
                 <div class="h-2"></div>
                 <div class="flex gap-3">
 
-                    {move || project_types
-                        .into_iter()
-                        .map(|p| {
-                            view! {
-                                <div
-                                    class="p-2 text-sm rounded-md hover:bg-black/20 dark:hover:bg-white/20 cursor-pointer"
-                                    class=(
-                                        [
-                                            "dark:text-white",
-                                            "text-black",
-                                            "bg-black/10",
-                                            "dark:bg-white/30",
-                                        ],
-                                        p.1,
-                                    )
+                    {move || {
+                        project_types
+                            .into_iter()
+                            .map(|p| {
+                                view! {
+                                    <div
+                                        class="p-2 text-sm rounded-md hover:bg-black/20 dark:hover:bg-white/20 cursor-pointer"
+                                        class=(
+                                            [
+                                                "dark:text-white",
+                                                "text-black",
+                                                "bg-black/10",
+                                                "dark:bg-white/30",
+                                            ],
+                                            p.1,
+                                        )
 
-                                    class=(
-                                        ["text-black/60", "dark:text-white/60"],
-                                        move || !p.1.get(),
-                                    )
+                                        class=(
+                                            ["text-black/60", "dark:text-white/60"],
+                                            move || !p.1.get(),
+                                        )
 
-                                    on:click=move |_| { set_edited_project_type.set(p.2.get()) }
-                                >
+                                        on:click=move |_| { set_edited_project_type.set(p.2.get()) }
+                                    >
 
-                                    {p.0}
-                                </div>
-                            }
-                        })
-                        .collect::<Vec<_>>()}
+                                        {p.0}
+                                    </div>
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    }}
 
                 </div>
                 <div class="h-2"></div>
@@ -316,10 +320,12 @@ pub fn ProjectSettings() -> impl IntoView {
                                     .into_view()
                             }
                             ProjectType::Container(container) => {
-
                                 let (tokens, set_tokens) = create_signal(container.tokens);
-
-                                let selected_domain = container.exposed_ports.first().and_then(|p|p.domains.first()).map(|d|d.name.as_ref().to_string());
+                                let selected_domain = container
+                                    .exposed_ports
+                                    .first()
+                                    .and_then(|p| p.domains.first())
+                                    .map(|d| d.name.as_ref().to_string());
                                 view! {
                                     <ActionForm action=update_image_action>
                                         <input
@@ -364,7 +370,14 @@ pub fn ProjectSettings() -> impl IntoView {
                                                     .unwrap_or_default()
                                                     .iter()
                                                     .map(|domain| {
-                                                        view! { <option value=domain.0 selected={Some(domain.0)==selected_domain.as_ref()}>{domain.0}</option> }
+                                                        view! {
+                                                            <option
+                                                                value=domain.0
+                                                                selected=Some(domain.0) == selected_domain.as_ref()
+                                                            >
+                                                                {domain.0}
+                                                            </option>
+                                                        }
                                                     })
                                                     .collect::<Vec<_>>()
                                             }}
@@ -374,67 +387,99 @@ pub fn ProjectSettings() -> impl IntoView {
                                         <div class="h-4"></div>
 
                                         <div class="text-md">"Tokens"</div>
-                                        <div class="" >
+                                        <div class="">
                                             <For
-                                                each=move||tokens.get().into_iter()
-                                                key=|p|p.0.clone()
+                                                each=move || tokens.get().into_iter()
+                                                key=|p| p.0.clone()
                                                 children=move |(index, token)| {
                                                     let token_id = index.clone();
-                                                    view!{
+                                                    view! {
                                                         <div class="flex flex-col gap-4 p-2 border dark:border-white/20 m-2 rounded">
                                                             <div class=" flex flex-col">
-                                                                <label for="token" class="text-sm dark:text-white/50">Token</label>
-                                                                <input prop:value={&token.token} type="hidden" name={format!("tokens[{index}][token]")} required
+                                                                <label for="token" class="text-sm dark:text-white/50">
+                                                                    Token
+                                                                </label>
+                                                                <input
+                                                                    prop:value=&token.token
+                                                                    type="hidden"
+                                                                    name=format!("tokens[{index}][token]")
+                                                                    required
                                                                     class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                 />
-                                                                <input prop:value={&token.token} disabled type="text" id="token" required
+                                                                <input
+                                                                    prop:value=&token.token
+                                                                    disabled
+                                                                    type="text"
+                                                                    id="token"
+                                                                    required
                                                                     class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                 />
                                                             </div>
                                                             <div class="flex gap-4 flex-wrap">
 
                                                                 <div class=" flex flex-col">
-                                                                    <label for="description" class="text-sm dark:text-white/50" >Description</label>
-                                                                    <input prop:value={&token.description} type="text" id="description" name={format!("tokens[{index}][description]")} required
+                                                                    <label for="description" class="text-sm dark:text-white/50">
+                                                                        Description
+                                                                    </label>
+                                                                    <input
+                                                                        prop:value=&token.description
+                                                                        type="text"
+                                                                        id="description"
+                                                                        name=format!("tokens[{index}][description]")
+                                                                        required
                                                                         class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                     />
                                                                 </div>
 
                                                                 <div class=" flex flex-col">
-                                                                    <label for="expiry" class="text-sm dark:text-white/50" >Expiry</label>
-                                                                    <input type="date" prop:value={token.expiry.map(|e|e.to_string()).unwrap_or_default()} id="expiry" name={format!("tokens[{index}][expiry]")}
+                                                                    <label for="expiry" class="text-sm dark:text-white/50">
+                                                                        Expiry
+                                                                    </label>
+                                                                    <input
+                                                                        type="date"
+                                                                        prop:value=token
+                                                                            .expiry
+                                                                            .map(|e| e.to_string())
+                                                                            .unwrap_or_default()
+                                                                        id="expiry"
+                                                                        name=format!("tokens[{index}][expiry]")
                                                                         class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                     />
                                                                 </div>
 
                                                                 <button
                                                                     class="p-2 rounded bg-red-700 px-6 text-white mt-5"
-                                                                    on:click=move|_|{
+                                                                    on:click=move |_| {
                                                                         let mut tokens = tokens.get_untracked();
                                                                         tokens.remove(&token_id);
                                                                         set_tokens.set(tokens)
                                                                     }
-                                                                > "Delete Token" </button>
+                                                                >
+
+                                                                    "Delete Token"
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     }
                                                 }
                                             />
+
                                             <button
                                                 class="p-2 rounded border bg-white/90 px-6 text-black"
-                                                on:click=move|_|{
-                                                    let new_token = Token{
-                                                        expiry:None,
+                                                on:click=move |_| {
+                                                    let new_token = Token {
+                                                        expiry: None,
                                                         description: String::new(),
-                                                        token: random_ascii_string(20)
+                                                        token: random_ascii_string(20),
                                                     };
                                                     let mut tokens = tokens.get_untracked();
-                                                    tokens.insert(new_token.token.clone(),new_token);
-                                                    set_tokens.set(
-                                                        tokens
-                                                    );
+                                                    tokens.insert(new_token.token.clone(), new_token);
+                                                    set_tokens.set(tokens);
                                                 }
-                                            > "Generate new Token" </button>
+                                            >
+
+                                                "Generate new Token"
+                                            </button>
                                         </div>
 
                                         <div class="h-4"></div>
