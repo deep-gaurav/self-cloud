@@ -33,6 +33,8 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 static GLOBAL: Jemalloc = Jemalloc;
 
 fn main() {
+    dotenv::dotenv().ok();
+
     let subscriber = tracing_subscriber::registry().with(fmt::layer()).with(
         EnvFilter::builder()
             .with_default_directive(LevelFilter::INFO.into())

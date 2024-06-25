@@ -88,6 +88,14 @@ async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
                 info!("Container exists with id {:?}", inspect.image);
                 info!("Image id {:?}", image_inspect.id);
                 if image_inspect.id == inspect.image {
+                    if let Some(state) = &inspect.state {
+                        if !state.running.unwrap_or(false) {
+                            if let Err(err) = docker_container.start().await {
+                                warn!("Cannot start container {err:?}")
+                            }
+                            info!("Container started");
+                        }
+                    }
                     Some(docker_container)
                 } else {
                     None
@@ -117,7 +125,7 @@ async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
                 let mut container_fut = tokio::spawn(async move {
                     let docker = get_docker();
                     let mut builder = ContainerCreateOpts::builder()
-                        .auto_remove(true)
+                        // .auto_remove(true)
                         // .image_arch("amd64")
                         .name(id)
                         .image(image.name())

@@ -26,6 +26,82 @@ pub async fn inspect_container(
     }
 }
 
+#[server(PauseContainer)]
+pub async fn pause_container(id: Uuid) -> Result<(), ServerFnError> {
+    user()?;
+    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    if let ProjectType::Container(container) = &project.project_type {
+        if let crate::common::ContainerStatus::Running(container) = &container.status {
+            container
+                .pause()
+                .await
+                .map_err(|e| ServerFnError::new("Cannot pause container"))?;
+            Ok(())
+        } else {
+            Err(ServerFnError::new("container not running"))
+        }
+    } else {
+        Err(ServerFnError::new("project doesnt have container"))
+    }
+}
+
+#[server(ResumeContainer)]
+pub async fn resume_container(id: Uuid) -> Result<(), ServerFnError> {
+    user()?;
+    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    if let ProjectType::Container(container) = &project.project_type {
+        if let crate::common::ContainerStatus::Running(container) = &container.status {
+            container
+                .unpause()
+                .await
+                .map_err(|e| ServerFnError::new("Cannot resume container"))?;
+            Ok(())
+        } else {
+            Err(ServerFnError::new("container not running"))
+        }
+    } else {
+        Err(ServerFnError::new("project doesnt have container"))
+    }
+}
+
+#[server(StopContainer)]
+pub async fn stop_container(id: Uuid) -> Result<(), ServerFnError> {
+    user()?;
+    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    if let ProjectType::Container(container) = &project.project_type {
+        if let crate::common::ContainerStatus::Running(container) = &container.status {
+            container
+                .stop(&docker_api::opts::ContainerStopOpts::builder().build())
+                .await
+                .map_err(|e| ServerFnError::new("Cannot stop container"))?;
+            Ok(())
+        } else {
+            Err(ServerFnError::new("container not running"))
+        }
+    } else {
+        Err(ServerFnError::new("project doesnt have container"))
+    }
+}
+
+#[server(StartContainer)]
+pub async fn start_container(id: Uuid) -> Result<(), ServerFnError> {
+    user()?;
+    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    if let ProjectType::Container(container) = &project.project_type {
+        if let crate::common::ContainerStatus::Running(container) = &container.status {
+            container
+                .start()
+                .await
+                .map_err(|e| ServerFnError::new("Cannot start container"))?;
+            Ok(())
+        } else {
+            Err(ServerFnError::new("container not running"))
+        }
+    } else {
+        Err(ServerFnError::new("project doesnt have container"))
+    }
+}
+
 #[server(AddProject)]
 pub async fn add_project(name: String) -> Result<Project, ServerFnError> {
     use crate::common::PROJECTS;

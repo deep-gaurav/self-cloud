@@ -48,7 +48,7 @@ leptos_router = { version = "0.6", features = [] }
 leptos_axum = { version = "0.6" }
 leptos-use = { version = "0.10.10" }
 
-axum = { version = "0.7", features = ["macros", "multipart", "http2"] }
+axum = { version = "0.7", features = ["macros", "multipart"] }
 cfg-if = "1"
 console_error_panic_hook = "0.1.7"
 console_log = "1"
@@ -93,6 +93,8 @@ futures = "0.3.30"
 regex-macro = "0.2.0"
 
 chrono = { version = "0.4", features = ["serde"] }
+
+dotenv = "0.15.0"
 
 # See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
 

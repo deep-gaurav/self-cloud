@@ -318,6 +318,8 @@ pub fn ProjectSettings() -> impl IntoView {
                             ProjectType::Container(container) => {
 
                                 let (tokens, set_tokens) = create_signal(container.tokens);
+
+                                let selected_domain = container.exposed_ports.first().and_then(|p|p.domains.first()).map(|d|d.name.as_ref().to_string());
                                 view! {
                                     <ActionForm action=update_image_action>
                                         <input
@@ -362,7 +364,7 @@ pub fn ProjectSettings() -> impl IntoView {
                                                     .unwrap_or_default()
                                                     .iter()
                                                     .map(|domain| {
-                                                        view! { <option value=domain.0 >{domain.0}</option> }
+                                                        view! { <option value=domain.0 selected={Some(domain.0)==selected_domain.as_ref()}>{domain.0}</option> }
                                                     })
                                                     .collect::<Vec<_>>()
                                             }}

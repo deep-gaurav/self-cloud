@@ -17,3 +17,5 @@ account.json
 certificates
 
 projects.json
+
+.env
