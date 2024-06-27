@@ -13,6 +13,7 @@ use instant_acme::{
     Account, AccountCredentials, AuthorizationStatus, ChallengeType, Identifier, KeyAuthorization,
     LetsEncrypt, NewAccount, NewOrder, OrderStatus,
 };
+use openssl::nid::Nid;
 use pingora::{
     server::ShutdownWatch,
     services::background::{background_service, BackgroundService, GenBackgroundService},
@@ -242,7 +243,7 @@ async fn generate_certificate(domain: UniCase<String>, account: Account, acme: T
     // Finalize the order and print certificate chain, private key and account credentials.
 
     order.finalize(&csr).await.unwrap();
-    let cert_chain_pem = loop {
+    let mut cert_chain_pem = loop {
         match order.certificate().await.unwrap() {
             Some(cert_chain_pem) => break cert_chain_pem,
             None => tokio::time::sleep(std::time::Duration::from_secs(1)).await,
@@ -277,7 +278,7 @@ async fn generate_certificate(domain: UniCase<String>, account: Account, acme: T
     {
         let mut peers = DOMAIN_MAPPING.write().unwrap();
         if let Some(peer) = peers.get_mut(&domain) {
-            let cert = pingora::tls::x509::X509::from_pem(cert_chain_pem.as_bytes());
+            let cert = pingora::tls::x509::X509::stack_from_pem(cert_chain_pem.as_bytes());
             let key = pingora::tls::pkey::PKey::private_key_from_pem(kp.serialize_pem().as_bytes());
 
             if let (Ok(cert), Ok(key)) = (cert, key) {

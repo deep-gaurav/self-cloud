@@ -35,7 +35,7 @@ bincode = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 
 time = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true }
+serde_json = { workspace = true }
 
 unicase.workspace = true
 unicase_serde.workspace = true
@@ -44,6 +44,10 @@ docker-api = { workspace = true, optional = true }
 docker-api-stubs = { workspace = true }
 
 chrono.workspace = true
+
+leptos_sse = { workspace = true }
+
+leptos-chartistry.workspace = true
 
 [features]
 default = []
@@ -62,6 +66,5 @@ ssr = [
     "dep:bincode",
     "dep:base64",
     "dep:time",
-    "dep:serde_json",
     "dep:docker-api",
 ]

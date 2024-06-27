@@ -108,6 +108,14 @@ impl ProjectType {
     pub fn is_container(&self) -> bool {
         matches!(self, Self::Container(..))
     }
+
+    pub fn as_container(&self) -> Option<&Container> {
+        if let Self::Container(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -143,6 +151,14 @@ impl ContainerStatus {
     #[must_use]
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
+    }
+
+    pub fn as_running(&self) -> Option<&Arc<docker_api::api::Container>> {
+        if let Self::Running(v) = self {
+            Some(v)
+        } else {
+            None
+        }
     }
 }
 
@@ -463,7 +479,7 @@ impl From<DomainStatus> for DomainStatusFields {
 pub struct SSlData {
     #[cfg(feature = "ssr")]
     #[serde(skip)]
-    pub cert: pingora::tls::x509::X509,
+    pub cert: Vec<pingora::tls::x509::X509>,
 
     #[serde(skip)]
     #[cfg(feature = "ssr")]
@@ -549,7 +565,10 @@ pub async fn add_project_domain(project: Arc<Project>, domain: String) -> anyhow
         )
         .await,
     ) {
-        let cert = pingora::tls::x509::X509::from_pem(&cert)?;
+        let cert = pingora::tls::x509::X509::stack_from_pem(&cert)?;
+        if cert.len() < 1 {
+            anyhow::bail!("Should have atleast 1 certificate")
+        }
         let key = pingora::tls::pkey::PKey::private_key_from_pem(&key)?;
         let mut peers = DOMAIN_MAPPING
             .write()

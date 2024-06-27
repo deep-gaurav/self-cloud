@@ -96,6 +96,18 @@ chrono = { version = "0.4", features = ["serde"] }
 
 dotenv = "0.15.0"
 
+leptos_sse = "0.4"
+
+async-stream = "0.3"
+
+tokio-stream = "0.1"
+
+leptos-chartistry = "0.1"
+
+reqwest = "0.12.5"
+
+phf = { version = "0.11.2", features = ["macros"] }
+
 # See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
 
 # A leptos project defines which workspace members
@@ -180,7 +192,7 @@ tailwind-input-file = "style/tailwind.css"
 tailwind-config-file = "tailwind.config.js"
 
 
-# bin-target-triple = "x86_64-unknown-linux-musl"
+bin-target-triple = "x86_64-unknown-linux-musl"
 
 
 bin-profile-release = "binrelease"

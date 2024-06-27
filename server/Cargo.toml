@@ -59,5 +59,14 @@ chrono.workspace = true
 
 dotenv.workspace = true
 
+leptos_sse = { workspace = true, features = ["axum", "ssr"] }
+
+async-stream.workspace = true
+tokio-stream.workspace = true
+
+reqwest.workspace = true
+
+phf.workspace = true
+
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.5"

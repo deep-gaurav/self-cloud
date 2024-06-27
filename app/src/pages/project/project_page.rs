@@ -156,6 +156,7 @@ pub fn ProjectPage() -> impl IntoView {
     }
 }
 
+#[component]
 pub fn ProjectSettings() -> impl IntoView {
     let id = expect_context::<Uuid>();
 
@@ -503,6 +504,7 @@ pub fn ProjectSettings() -> impl IntoView {
     }
 }
 
+#[component]
 pub fn DomainsList() -> impl IntoView {
     let id = expect_context::<Uuid>();
     let add_domain_action = create_server_action::<AddProjectDomain>();

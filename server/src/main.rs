@@ -14,6 +14,7 @@ use structopt::StructOpt;
 // mod proxy;
 
 mod auth;
+mod container_events;
 mod container_manager;
 mod fileserv;
 mod gateway;

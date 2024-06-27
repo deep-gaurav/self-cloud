@@ -252,8 +252,16 @@ impl pingora::listeners::TlsAccept for CertSolver {
                 None
             };
             if let Some((cert, key)) = peer {
-                ext::ssl_use_certificate(ssl, &cert).unwrap();
+                let mut cert = cert.iter();
                 ext::ssl_use_private_key(ssl, &key).unwrap();
+                if let Some(cert) = cert.next() {
+                    ext::ssl_use_certificate(ssl, &cert).unwrap();
+                }
+                while let Some(chain_cert) = cert.next() {
+                    if let Err(err) = ext::ssl_add_chain_cert(ssl, &chain_cert) {
+                        warn!("Failed loading cert chain {err:?}");
+                    }
+                }
             }
         }
     }
