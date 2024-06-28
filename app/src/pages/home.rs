@@ -26,7 +26,7 @@ pub fn HomePage(login: Action<Login, Result<(), ServerFnError>>) -> impl IntoVie
     });
 
     view! {
-        <div class="w-full min-h-full h-full flex items-center justify-center flex-col">
+        <div class="w-full h-full flex items-center justify-center flex-col flex-grow 1">
             <ActionForm
                 action=login
                 class="p-4 rounded shadow-lg flex flex-col bg-white dark:bg-white/15 dark:shadow-white/25"

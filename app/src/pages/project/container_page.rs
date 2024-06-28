@@ -179,8 +179,6 @@ pub fn ContainerPage() -> impl IntoView {
 
 #[component]
 pub fn ContainerStats(id: Uuid) -> impl IntoView {
-    leptos_sse::provide_sse(&format!("/events/container/see/{id}")).unwrap();
-
     #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
     struct CpuUsage {
         total_usage: u128,

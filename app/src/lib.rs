@@ -44,7 +44,7 @@ pub fn App() -> impl IntoView {
             view! { <ErrorTemplate outside_errors/> }.into_view()
         }>
 
-            <main class="min-h-full h-full w-full bg-slate-100 dark:bg-black dark:text-slate-50">
+            <main class="min-h-full w-full bg-slate-100 dark:bg-black dark:text-slate-50 flex flex-col">
                 <Routes>
                     <Route
                         ssr=SsrMode::PartiallyBlocked
