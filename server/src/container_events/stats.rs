@@ -1,20 +1,27 @@
+use std::sync::Arc;
+
 use app::common::PROJECTS;
 use axum::{
-    extract::Path,
+    extract::{
+        ws::{Message, WebSocket},
+        Path, WebSocketUpgrade,
+    },
     response::{
         sse::{Event, KeepAlive},
-        Sse,
+        Response, Sse,
     },
 };
+use docker_api::Container;
 use futures::{Stream, TryStreamExt};
 use http::StatusCode;
 use tokio_stream::StreamExt;
+use tracing::warn;
 use uuid::Uuid;
 
-pub async fn container_stats_see(
+pub async fn container_stats_ws(
     Path(project_id): Path<Uuid>,
-) -> Result<Sse<impl Stream<Item = Result<Event, axum::BoxError>>>, (axum::http::StatusCode, String)>
-{
+    ws: WebSocketUpgrade,
+) -> Result<Response, (axum::http::StatusCode, String)> {
     let container = {
         let projects = PROJECTS.read().await;
         let project = projects
@@ -30,24 +37,41 @@ pub async fn container_stats_see(
         container.clone()
     };
 
-    let stream = async_stream::stream! {
-        let mut stat_stream = container.stats();
-        while let Some(item) = stat_stream.next().await {
-            match item {
-                Ok(item) => {
-                    yield Ok(item)
+    Ok(ws.on_upgrade(|socket| handle_stats_socket(socket, container)))
+}
+
+async fn handle_stats_socket(mut socket: WebSocket, container: Arc<Container>) {
+    let mut stat_stream = container.stats();
+    let mut previous_value = serde_json::Value::Null;
+    loop {
+        tokio::select! {
+            rec = socket.recv() => {
+                if rec.is_none() {
+                    tracing::debug!("Exiting stats socket, ws closed");
+                    break;
                 }
-                Err(err) => {
-                    // yield Err(axum::BoxError::new(anyhow::anyhow!("{err:#?}")))
+                //Ignore for now
+            }
+            Some(item) = stat_stream.next() => {
+                match item {
+                    Ok(item) => {
+                        let patch = json_patch::diff(&previous_value, &item);
+                        if let Ok(patch_serialized) = serde_json::to_string(&patch) {
+                            if let Err(err) = socket.send(Message::Text(patch_serialized)).await {
+                                warn!("Failed to send msg {err:?}");
+                            } else {
+                                previous_value = item;
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        // yield Err(axum::BoxError::new(anyhow::anyhow!("{err:#?}")))
+                    }
                 }
             }
         }
-    };
+    }
+    // while let Some(item) = stat_stream.next().await {
 
-    use leptos_sse::ServerSentEvents;
-    use std::time::Duration;
-
-    let mut value = 0;
-    let stream = ServerSentEvents::new("stats", stream).unwrap();
-    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
+    // }
 }

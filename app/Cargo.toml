@@ -31,7 +31,7 @@ tower-cookies = { workspace = true, optional = true }
 aes-gcm-siv = { workspace = true, optional = true }
 rand = { workspace = true }
 
-bincode = { workspace = true, optional = true }
+bincode = { workspace = true }
 base64 = { workspace = true, optional = true }
 
 time = { workspace = true, optional = true }
@@ -49,6 +49,8 @@ leptos_sse = { workspace = true }
 
 leptos-chartistry.workspace = true
 
+json-patch.workspace = true
+
 [features]
 default = []
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
@@ -63,7 +65,6 @@ ssr = [
     "dep:tokio",
     "dep:tower-cookies",
     "dep:aes-gcm-siv",
-    "dep:bincode",
     "dep:base64",
     "dep:time",
     "dep:docker-api",

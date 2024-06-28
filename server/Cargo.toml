@@ -68,5 +68,8 @@ reqwest.workspace = true
 
 phf.workspace = true
 
+struct-patch.workspace = true
+json-patch.workspace = true
+
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.5"

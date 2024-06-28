@@ -1,6 +1,8 @@
+use std::collections::VecDeque;
+
 use leptos::{
     component, create_action, create_effect, create_resource, create_server_action, expect_context,
-    prelude::*, view, IntoView, Transition,
+    prelude::*, use_context, view, IntoView, Transition,
 };
 use leptos_chartistry::IntoInner;
 use leptos_chartistry::{
@@ -9,9 +11,10 @@ use leptos_chartistry::{
 };
 use leptos_sse::create_sse_signal;
 use leptos_use::{use_interval_fn, utils::Pausable};
+use leptos_use::{use_websocket, UseWebsocketReturn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::info;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::api::{
@@ -178,25 +181,25 @@ pub fn ContainerPage() -> impl IntoView {
 pub fn ContainerStats(id: Uuid) -> impl IntoView {
     leptos_sse::provide_sse(&format!("/events/container/see/{id}")).unwrap();
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
     struct CpuUsage {
         total_usage: u128,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
     struct CpuStats {
         online_cpus: u32,
         system_cpu_usage: u128,
         cpu_usage: CpuUsage,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
     struct MemoryStats {
         limit: u128,
         usage: u128,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
     struct Stats {
         cpu_stats: CpuStats,
         precpu_stats: CpuStats,
@@ -205,17 +208,53 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
     }
 
     // Create server signal
-    let stats = create_sse_signal::<Value>("stats");
+    let UseWebsocketReturn {
+        ready_state,
+        message,
+        message_bytes,
+        send,
+        send_bytes,
+        open,
+        close,
+        ..
+    } = use_websocket(&format!("/events/container/ws/{id}"));
 
-    let (stats_vec, set_stats_vec) = create_signal(vec![]);
+    let (stats_vecdq, set_stats_vecdq) = create_signal(VecDeque::with_capacity(30));
+    let stats_vec = create_memo(move |_| Vec::from(stats_vecdq.get()));
 
+    let (received_json, set_received_json) = create_signal(serde_json::Value::Null);
     create_effect(move |_| {
-        let stats = stats.get();
-        let stats = serde_json::from_value::<Stats>(stats);
-        if let Ok(stats) = stats {
-            let mut data = stats_vec.get_untracked();
-            data.push(stats);
-            set_stats_vec.set(data);
+        let message = message.get();
+        if let Some(message) = message {
+            let patch = serde_json::from_str::<json_patch::Patch>(&message);
+            match patch {
+                Ok(patch) => {
+                    let mut data = received_json.get_untracked();
+
+                    if let Err(err) = json_patch::patch(&mut data, &patch) {
+                        warn!("Json patch failed")
+                    } else {
+                        set_received_json.set(data.clone());
+                        let stats = serde_json::from_value::<Stats>(data);
+                        match stats {
+                            Ok(stats) => {
+                                let mut data = stats_vecdq.get_untracked();
+                                if data.len() >= 30 {
+                                    data.pop_front();
+                                }
+                                data.push_back(stats);
+                                set_stats_vecdq.set(data);
+                            }
+                            Err(err) => {
+                                warn!("Failed to parse json to stats {err:?}")
+                            }
+                        }
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!("Received data not json-patch")
+                }
+            }
         }
     });
 
@@ -224,16 +263,15 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
             data.cpu_stats.cpu_usage.total_usage - data.precpu_stats.cpu_usage.total_usage;
         let system_cpu_delta = data.cpu_stats.system_cpu_usage - data.precpu_stats.system_cpu_usage;
 
-        let usage_perc =
-            ((cpu_delta as f64 / system_cpu_delta as f64) as f64) * (data.cpu_stats.online_cpus as f64) * 100_f64;
-
-
-        info!("CPU DELTA {cpu_delta}\nSYSTEM DELTA {system_cpu_delta}\nUSAGE {usage_perc} USAGE {}/{}", data.cpu_stats.cpu_usage.total_usage, data.cpu_stats.system_cpu_usage);
+        let usage_perc = ((cpu_delta as f64 / system_cpu_delta as f64) as f64)
+            * (data.cpu_stats.online_cpus as f64)
+            * 100_f64;
         usage_perc
     }));
 
     let memory_series = Series::new(|data: &Stats| data.read).line(Line::new(|data: &Stats| {
-        let usage_perc = ((data.memory_stats.usage as f64/ data.memory_stats.limit as f64) as f64) * 100_f64;
+        let usage_perc =
+            ((data.memory_stats.usage as f64 / data.memory_stats.limit as f64) as f64) * 100_f64;
         usage_perc
     }));
 
@@ -247,6 +285,7 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                 // Decorate our chart
                 top=RotatedLabel::middle("CPU Usage")
                 left=TickLabels::aligned_floats()
+                bottom = TickLabels::timestamps()
                 // bottom=Legend::end()
                 inner=[
                     // Standard set of inner layout options
@@ -270,6 +309,7 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                 // Decorate our chart
                 top=RotatedLabel::middle("Memory Usage")
                 left=TickLabels::aligned_floats()
+                bottom = TickLabels::timestamps()
                 // bottom=Legend::end()
                 inner=[
                     // Standard set of inner layout options
