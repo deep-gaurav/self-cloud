@@ -27,7 +27,7 @@ use tracing::info;
 
 use crate::{
     auth::get_authorized_users,
-    container_events::stats::container_stats_ws,
+    container_events::{logs::container_logs_ws, stats::container_stats_ws},
     fileserv::file_and_error_handler,
     image_uploader,
     tls_gen::{acme_handler, TLSState},
@@ -117,7 +117,8 @@ async fn run_main(tls_state: TLSState) {
         )
         .leptos_routes_with_handler(routes, get(leptos_routes_handler))
         .route("/.well-known/acme-challenge/:token", get(acme_handler))
-        .route("/events/container/ws/:id", get(container_stats_ws))
+        .route("/events/container/:id/stats/ws", get(container_stats_ws))
+        .route("/events/container/:id/logs/ws", get(container_logs_ws))
         .fallback(file_and_error_handler)
         .with_state(app_state)
         .layer(compression)

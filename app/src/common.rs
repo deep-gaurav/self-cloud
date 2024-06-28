@@ -618,3 +618,29 @@ pub fn get_docker() -> docker_api::Docker {
 
     docker_api::Docker::unix(sock)
 }
+
+#[derive(Serialize, Deserialize)]
+pub enum TtyChunk {
+    StdIn(Vec<u8>),
+    StdOut(Vec<u8>),
+    StdErr(Vec<u8>),
+}
+
+#[cfg(feature = "ssr")]
+impl From<docker_api::conn::TtyChunk> for TtyChunk {
+    fn from(value: docker_api::conn::TtyChunk) -> Self {
+        match value {
+            docker_api::conn::TtyChunk::StdIn(b) => Self::StdIn(b),
+            docker_api::conn::TtyChunk::StdOut(b) => Self::StdOut(b),
+            docker_api::conn::TtyChunk::StdErr(b) => Self::StdErr(b),
+        }
+    }
+}
+
+impl AsRef<[u8]> for TtyChunk {
+    fn as_ref(&self) -> &[u8] {
+        match &self {
+            Self::StdIn(b) | Self::StdErr(b) | Self::StdOut(b) => b,
+        }
+    }
+}

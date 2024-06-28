@@ -95,8 +95,8 @@ pub fn ProjectPage() -> impl IntoView {
                             }
                         })
                 }}
-                <hr class="my-2"/> <div class="flex flex-row gap-x-5">
-                    <div class="w-40">
+                <hr class="my-2"/> <div class="flex flex-col gap-5 sm:flex-row">
+                    <div class="w-40 flex flex-row sm:flex-col">
 
                         <For
                             each=move || {
@@ -134,11 +134,12 @@ pub fn ProjectPage() -> impl IntoView {
                                 view! {
                                     <A
                                         href=move || format!("{}{}", use_route().path(), m.path)
-                                        class="dark:hover:bg-white/10 hover:bg-black/10 p-3 rounded text-sm cursor-pointer text-slate-700 dark:text-white/65 block"
                                     >
-                                        <span class=(
-                                            ["text-black", "dark:text-white", "font-medium"],
-                                            move || is_active.get(),
+                                        <span
+                                        class="dark:hover:bg-white/5 hover:bg-black/5 p-3 rounded text-sm cursor-pointer text-slate-700 dark:text-white/65 block"
+                                        class=(
+                                            ["text-black", "dark:text-white", "font-medium","dark:bg-white/10","bg-black/10"],
+                                            is_active,
                                         )>{m.name}</span>
                                     </A>
                                 }

@@ -51,6 +51,11 @@ leptos-chartistry.workspace = true
 
 json-patch.workspace = true
 
+ansi-to-html.workspace = true
+
+leptos_icons.workspace = true
+icondata.workspace = true
+
 [features]
 default = []
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]

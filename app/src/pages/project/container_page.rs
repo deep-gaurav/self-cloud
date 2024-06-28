@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
 use leptos::{
-    component, create_action, create_effect, create_resource, create_server_action, expect_context,
-    prelude::*, use_context, view, IntoView, Transition,
+    component, create_action, create_effect, create_node_ref, create_resource,
+    create_server_action, expect_context, prelude::*, use_context, view, For, IntoView, Transition,
 };
 use leptos_chartistry::IntoInner;
 use leptos_chartistry::{
@@ -20,6 +20,7 @@ use uuid::Uuid;
 use crate::api::{
     inspect_container, PauseContainer, ResumeContainer, StartContainer, StopContainer,
 };
+use crate::common::TtyChunk;
 
 #[component]
 pub fn ContainerPage() -> impl IntoView {
@@ -99,7 +100,7 @@ pub fn ContainerPage() -> impl IntoView {
 
                                 </div>
 
-                                <div class="flex-grow w-full"></div>
+                                <div class="flex-grow"></div>
                                 <div class="flex gap-2">
 
                                     {move || {
@@ -171,12 +172,83 @@ pub fn ContainerPage() -> impl IntoView {
                     }
                 }
             }
-            <ContainerStats id=id/>
+
+            <div class="h-2"/>
+
+            <ContainerSubPages id />
 
         </Transition>
     }
 }
+#[component]
+pub fn ContainerSubPages(id: Uuid) -> impl IntoView {
+    #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+    enum ContainerPageType {
+        Logs,
+        Stats,
+    }
 
+    #[derive(Clone)]
+    struct ContainerPage<'a> {
+        name: &'a str,
+        icon: icondata::Icon,
+        r#type: ContainerPageType,
+    }
+
+    let container_sub_pages = Vec::from([
+        ContainerPage {
+            name: "Logs",
+            icon: icondata::OcLogLg,
+            r#type: ContainerPageType::Logs,
+        },
+        ContainerPage {
+            name: "Stats",
+            icon: icondata::ImStatsDots,
+            r#type: ContainerPageType::Stats,
+        },
+    ]);
+    let (selected_page, set_selected_page) = create_signal(container_sub_pages[0].r#type);
+
+    view! {
+        <div class="flex border-black border-b items-end gap-1 px-2">
+            <For
+                each=move || container_sub_pages.clone()
+                key=|page| page.r#type.clone()
+                children=move |page| {
+                    view! {
+                        <button class="p-2 border border-black mb-[-0.05em] rounded-t-lg"
+                            class=(["border-b-slate-100", "p-3"], move || page.r#type == selected_page.get())
+
+                            on:click = move |_| {
+                                set_selected_page.set(page.r#type)
+                            }
+                        >
+                            {
+                                page.name
+                            }
+                        </button>
+                    }
+                }
+            />
+        </div>
+
+        <div class="h-2" />
+        {
+            move || match selected_page.get(){
+                ContainerPageType::Logs => {
+                    view! {
+                        <ContainerLogs id />
+                    }
+                },
+                ContainerPageType::Stats => {
+                    view! {
+                        <ContainerStats id />
+                    }
+                },
+            }
+        }
+    }
+}
 #[component]
 pub fn ContainerStats(id: Uuid) -> impl IntoView {
     #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -207,15 +279,15 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
 
     // Create server signal
     let UseWebsocketReturn {
-        ready_state,
+        // ready_state,
         message,
-        message_bytes,
-        send,
-        send_bytes,
-        open,
-        close,
+        // message_bytes,
+        // send,
+        // send_bytes,
+        // open,
+        // close,
         ..
-    } = use_websocket(&format!("/events/container/ws/{id}"));
+    } = use_websocket(&format!("/events/container/{id}/stats/ws"));
 
     let (stats_vecdq, set_stats_vecdq) = create_signal(VecDeque::with_capacity(30));
     let stats_vec = create_memo(move |_| Vec::from(stats_vecdq.get()));
@@ -320,6 +392,54 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                 ]
                 tooltip=Tooltip::left_cursor()
             />
+        </div>
+    }
+}
+
+#[component]
+pub fn ContainerLogs(id: Uuid) -> impl IntoView {
+    // Create server signal
+    let UseWebsocketReturn {
+        // ready_state,
+        // message,
+        message_bytes,
+        // send,
+        // send_bytes,
+        // open,
+        // close,
+        ..
+    } = use_websocket(&format!("/events/container/{id}/logs/ws"));
+
+    let (output, set_output) = create_signal(String::new());
+    let div_ref = create_node_ref::<leptos::html::Div>();
+
+    create_effect(move |_| {
+        let message = message_bytes.get();
+        if let Some(message) = message {
+            let chunk = bincode::deserialize::<TtyChunk>(&message);
+            match chunk {
+                Ok(chunk) => {
+                    let string = std::str::from_utf8(chunk.as_ref());
+                    if let Ok(string) = string {
+                        if let Ok(html) = ansi_to_html::convert(&string) {
+                            let mut data = output.get_untracked();
+                            data.push_str(&html);
+                            if let Some(node) = div_ref.get_untracked() {
+                                node.set_inner_html(&data);
+                            }
+                            set_output.set(data);
+                        }
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!("Received data not tty-chunk")
+                }
+            }
+        }
+    });
+
+    view! {
+        <div _ref=div_ref class="bg-white p-2 rounded-md border text-black whitespace-break-spaces max-h-80 overflow-auto">
         </div>
     }
 }
