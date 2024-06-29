@@ -7,12 +7,10 @@ use axum::{body::Bytes, http::header};
 use openssl::ssl::NameType;
 use pingora::{
     http::ResponseHeader,
-    protocols::ssl::digest,
     proxy::{http_proxy_service_with_name, HttpProxy, ProxyHttp, Session},
     server::Server,
     services::listening::Service,
-    upstreams::peer::HttpPeer,
-    Error, Result,
+    upstreams::peer::HttpPeer, Result,
 };
 use tracing::{info, warn};
 use unicase::UniCase;

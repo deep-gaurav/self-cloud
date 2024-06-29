@@ -1,20 +1,18 @@
 use std::collections::VecDeque;
 
 use leptos::{
-    component, create_action, create_effect, create_node_ref, create_resource,
-    create_server_action, expect_context, prelude::*, use_context, view, For, IntoView, Transition,
+    component, create_effect, create_node_ref, create_resource,
+    create_server_action, expect_context, prelude::*, view, For, IntoView, Transition,
 };
 use leptos_chartistry::IntoInner;
 use leptos_chartistry::{
-    AspectRatio, AxisMarker, Chart, Legend, Line, RotatedLabel, Series, TickLabels, Tooltip,
+    AspectRatio, AxisMarker, Chart, Line, RotatedLabel, Series, TickLabels, Tooltip,
     XGridLine, XGuideLine, YGridLine, YGuideLine,
 };
-use leptos_sse::create_sse_signal;
 use leptos_use::{use_interval_fn, utils::Pausable};
 use leptos_use::{use_websocket, UseWebsocketReturn};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use tracing::{info, warn};
+use tracing::warn;
 use uuid::Uuid;
 
 use crate::api::{

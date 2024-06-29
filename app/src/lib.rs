@@ -1,5 +1,4 @@
 use crate::{
-    api::get_projects,
     auth::{get_auth, AuthType},
     error_template::{AppError, ErrorTemplate},
     pages::project::project_page::{DomainsList, ProjectSettings},
@@ -13,7 +12,6 @@ use crate::pages::project::{project_page::ProjectPage, ProjectsHome, ProjectsLis
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
-use tracing::info;
 
 use crate::auth::Login;
 

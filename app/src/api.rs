@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::anyhow;
 use leptos::{expect_context, server, use_context, ServerFnError};
@@ -160,7 +160,7 @@ pub async fn get_project(id: Uuid) -> Result<Project, ServerFnError> {
 
 #[cfg(feature = "ssr")]
 pub async fn get_project_arc(id: Uuid) -> anyhow::Result<std::sync::Arc<Project>> {
-    use std::sync::Arc;
+    
 
     use crate::common::PROJECTS;
 

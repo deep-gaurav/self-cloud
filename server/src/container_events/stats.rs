@@ -6,13 +6,9 @@ use axum::{
         ws::{Message, WebSocket},
         Path, WebSocketUpgrade,
     },
-    response::{
-        sse::{Event, KeepAlive},
-        Response, Sse,
-    },
+    response::Response,
 };
 use docker_api::Container;
-use futures::{Stream, TryStreamExt};
 use http::StatusCode;
 use tokio_stream::StreamExt;
 use tracing::warn;

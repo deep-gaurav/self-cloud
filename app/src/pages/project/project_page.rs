@@ -2,36 +2,30 @@ use std::collections::BinaryHeap;
 use std::collections::HashMap;
 
 use leptos::create_effect;
-use leptos::create_local_resource;
 use leptos::create_memo;
 use leptos::create_server_action;
 use leptos::create_signal;
-use leptos::ev::InputEvent;
 use leptos::event_target_value;
 use leptos::expect_context;
 use leptos::provide_context;
 use leptos::For;
-use leptos::Memo;
 use leptos::Params;
 use leptos::Resource;
 use leptos::ServerFnError;
 use leptos::SignalGet;
 use leptos::SignalGetUntracked;
 use leptos::SignalSet;
-use leptos::SignalWith;
 use leptos::SignalWithUntracked;
 use leptos::Transition;
 use leptos::{component, create_resource, view, IntoView};
 use leptos_router::use_params;
 use leptos_router::use_route;
 use leptos_router::ActionForm;
-use leptos_router::IntoParam;
 use leptos_router::Outlet;
 use leptos_router::Params;
 use leptos_router::A;
 use leptos_use::use_interval_fn;
 use leptos_use::utils::Pausable;
-use tracing::info;
 use uuid::Uuid;
 
 use crate::api::get_project;
@@ -229,7 +223,7 @@ pub fn ProjectSettings() -> impl IntoView {
         move || {},
         move |_| async move {
             let result = get_project_domains(id).await;
-            let mut result = result.unwrap_or_default();
+            let result = result.unwrap_or_default();
             result
         },
     );
@@ -514,7 +508,7 @@ pub fn DomainsList() -> impl IntoView {
         move || {},
         move |_| async move {
             let result = get_project_domains(id).await;
-            let mut result = result.unwrap_or_default();
+            let result = result.unwrap_or_default();
 
             // result.sort_by_key(|p| p.0.to_string());
             result

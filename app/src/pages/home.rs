@@ -1,15 +1,12 @@
 use leptos::create_effect;
-use leptos::create_server_action;
 use leptos::expect_context;
 use leptos::Action;
 use leptos::Resource;
 use leptos::ServerFnError;
 use leptos::SignalGet;
-use leptos::Suspense;
-use leptos::{component, create_resource, view, IntoView};
+use leptos::{component, view, IntoView};
 use leptos_router::ActionForm;
 
-use crate::api::get_projects;
 use crate::auth::AuthType;
 use crate::auth::Login;
 

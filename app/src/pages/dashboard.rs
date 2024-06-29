@@ -1,6 +1,4 @@
-use leptos::SignalGet;
-use leptos::Suspense;
-use leptos::{component, create_resource, view, IntoView};
+use leptos::{component, view, IntoView};
 use leptos_router::Redirect;
 
 /// Renders the home page of your application.

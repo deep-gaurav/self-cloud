@@ -13,7 +13,6 @@ use instant_acme::{
     Account, AccountCredentials, AuthorizationStatus, ChallengeType, Identifier, KeyAuthorization,
     LetsEncrypt, NewAccount, NewOrder, OrderStatus,
 };
-use openssl::nid::Nid;
 use pingora::{
     server::ShutdownWatch,
     services::background::{background_service, BackgroundService, GenBackgroundService},
@@ -46,7 +45,7 @@ impl BackgroundService for TLSGenService {
                         let account = match Account::from_credentials(cred).await {
                             Ok(account) => account,
                             Err(err) => {
-                                tracing::error!("Account cannot be generated");
+                                tracing::error!("Account cannot be generated {err:#?}");
                                 return;
                             }
                         };
@@ -230,7 +229,7 @@ async fn generate_certificate(domain: UniCase<String>, account: Account, acme: T
         return;
     }
 
-    let mut names = vec![domain.to_lowercase()];
+    let names = vec![domain.to_lowercase()];
 
     // If the order is ready, we can provision the certificate.
     // Use the rcgen library to create a Certificate Signing Request.
@@ -244,7 +243,7 @@ async fn generate_certificate(domain: UniCase<String>, account: Account, acme: T
     // Finalize the order and print certificate chain, private key and account credentials.
 
     order.finalize(&csr).await.unwrap();
-    let mut cert_chain_pem = loop {
+    let cert_chain_pem = loop {
         match order.certificate().await.unwrap() {
             Some(cert_chain_pem) => break cert_chain_pem,
             None => tokio::time::sleep(std::time::Duration::from_secs(1)).await,

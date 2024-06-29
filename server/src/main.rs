@@ -3,13 +3,8 @@ use std::{collections::HashMap, sync::RwLock};
 use container_manager::ContainerManager;
 use gateway::Gateway;
 use leptos_service::LeptosService;
-use openssl::pkey::Private;
-use pingora::{
-    server::{configuration::Opt, Server},
-    upstreams::peer::HttpPeer,
-};
+use pingora::server::{configuration::Opt, Server};
 // use proxy::Gateway;
-use once_cell::sync::Lazy;
 use structopt::StructOpt;
 // mod proxy;
 

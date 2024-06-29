@@ -1,5 +1,5 @@
 use std::{
-    io::{BufReader, Cursor},
+    io::Cursor,
     sync::Arc,
 };
 
@@ -17,7 +17,7 @@ use uuid::Uuid;
 pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String), PushError> {
     let mut token = None;
     let mut project_id = None;
-    while let Some(mut field) = multipart.next_field().await? {
+    while let Some(field) = multipart.next_field().await? {
         let name = field
             .name()
             .ok_or(anyhow::anyhow!("Unnamed field"))?
@@ -38,7 +38,7 @@ pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String)
                 };
 
                 {
-                    let mut projects = PROJECTS.read().await;
+                    let projects = PROJECTS.read().await;
                     let project = projects
                         .get(&project_id)
                         .ok_or(anyhow::anyhow!("project with given id not present"))?;

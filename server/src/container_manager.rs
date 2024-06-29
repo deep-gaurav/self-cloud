@@ -8,7 +8,7 @@ use pingora::{
     services::background::{background_service, BackgroundService, GenBackgroundService},
     upstreams::peer::HttpPeer,
 };
-use tracing::{error, info};
+use tracing::info;
 
 pub struct ContainerManager {}
 
