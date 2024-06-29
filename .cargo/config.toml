@@ -1,11 +1,14 @@
 [build]
 rustflags = ["-Z", "threads=8"]
 
-[target.x86_64-unknown-linux-gnu]
+# [target.x86_64-unknown-linux-gnu]
 # linker = "clang"
 # rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]
+
+
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"
+
+[target.x86_64-unknown-linux-gnu]
+linker = "x86_64-unknown-linux-gnu-gcc"
 # rustflags = ["-C", "target-feature=+crt-static"]
-
-
-# [target.x86_64-unknown-linux-musl]
-# linker = "x86_64-linux-musl-gcc"

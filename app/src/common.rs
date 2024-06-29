@@ -306,8 +306,14 @@ pub struct ProjectConfig {
 
 #[cfg(feature = "ssr")]
 pub async fn load_projects_config() -> anyhow::Result<()> {
-    let data = tokio::fs::read(get_home_path().join("projects.json")).await?;
+    let path = get_home_path().join("projects.json");
+    tracing::info!("Loading path {path:?}");
+    let data = tokio::fs::read(path).await?;
+    tracing::debug!("Loaded data");
     let project_config = serde_json::from_slice::<ProjectConfig>(&data)?;
+    tracing::debug!("Parsed config");
+
+    tracing::debug!("Updating projects");
     {
         let mut projects = PROJECTS.write().await;
         for project in project_config.projects.into_iter() {
@@ -316,17 +322,25 @@ pub async fn load_projects_config() -> anyhow::Result<()> {
         }
     }
 
+    tracing::debug!("Updating domains");
     for domain in project_config.domains.into_iter() {
+        tracing::trace!("Get project for {}", domain.domain);
         let project = {
             let projects = PROJECTS.read().await;
             let project = projects.get(&domain.project_id).cloned();
             project
         };
-
+        tracing::trace!(
+            "Add domain to {:?} ",
+            project.as_ref().map(|p| p.name.clone())
+        );
         if let Some(project) = project {
             add_project_domain(project.clone(), domain.domain).await?;
         }
+        tracing::trace!("Added domain");
     }
+
+    tracing::debug!("Load success");
     Ok(())
 }
 

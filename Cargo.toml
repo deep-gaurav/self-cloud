@@ -48,7 +48,7 @@ leptos_router = { version = "0.6", features = [] }
 leptos_axum = { version = "0.6" }
 leptos-use = { version = "0.10.10" }
 
-axum = { version = "0.7", features = ["macros", "multipart", "ws"] }
+axum = { version = "0.7", features = ["macros", "multipart", "ws", "http2"] }
 cfg-if = "1"
 console_error_panic_hook = "0.1.7"
 console_log = "1"
@@ -200,7 +200,7 @@ tailwind-input-file = "style/tailwind.css"
 tailwind-config-file = "tailwind.config.js"
 
 
-# bin-target-triple = "x86_64-unknown-linux-musl"
+bin-target-triple = "x86_64-unknown-linux-gnu"
 
 
 bin-profile-release = "binrelease"

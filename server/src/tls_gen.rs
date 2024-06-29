@@ -109,6 +109,7 @@ impl BackgroundService for TLSGenService {
                     break;
                 }
                 _ = period.tick() => {
+                    tracing::info!("SSL Tick");
                     let domain = 'ba: {
                         let mut peers = DOMAIN_MAPPING.write().unwrap();
                         for (domain, peer) in peers.iter_mut() {

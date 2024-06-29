@@ -30,6 +30,7 @@ impl BackgroundService for ContainerManager {
                     break;
                 }
                 _ = period.tick() => {
+                    tracing::info!("Container tick");
                     let mut peers = PROJECTS.write().await;
                     for (id, project) in peers.iter_mut() {
                         if let ProjectType::Container(container) = &project.project_type {
@@ -41,6 +42,8 @@ impl BackgroundService for ContainerManager {
                                 *project = Arc::new(project_t);
                                 let project = project.clone();
                                 tokio::spawn(async move {
+                                    tracing::info!("Container process, it's none {}", project.name);
+
                                     let id = project.id;
                                     if let Err(err) = run_and_set_container(project).await {
                                         warn!("Failed to run container {err:?}");
@@ -187,7 +190,7 @@ async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
                                         .and_then(|p| p.parse::<u16>().ok())
                                     {
                                         port.peer = Some(Box::new(HttpPeer::new(
-                                            format!("0.0.0.0:{host_port}"),
+                                            format!("127.0.0.1:{host_port}"),
                                             false,
                                             String::new(),
                                         )))
