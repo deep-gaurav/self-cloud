@@ -159,6 +159,14 @@ impl ContainerStatus {
             None
         }
     }
+
+    /// Returns `true` if the container status is [`Running`].
+    ///
+    /// [`Running`]: ContainerStatus::Running
+    #[must_use]
+    pub fn is_running(&self) -> bool {
+        matches!(self, Self::Running(..))
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -382,13 +390,13 @@ pub async fn save_project_config() -> anyhow::Result<()> {
 }
 
 impl<'de> Deserialize<'de> for Project {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         #[cfg(not(feature = "ssr"))]
         {
-            let fields = ProjectFields::deserialize(deserializer)?;
+            let fields = ProjectFields::deserialize(_deserializer)?;
             Ok(fields.into())
         }
 
@@ -516,7 +524,7 @@ impl PartialEq for SSlData {
 }
 
 impl<'de> Deserialize<'de> for SSlData {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -527,7 +535,7 @@ impl<'de> Deserialize<'de> for SSlData {
                 pub is_active: bool,
             }
 
-            let d = TmpSlData::deserialize(deserializer)?;
+            let d = TmpSlData::deserialize(_deserializer)?;
 
             Ok(SSlData {
                 is_active: d.is_active,

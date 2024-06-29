@@ -143,14 +143,15 @@ pub mod server {
         let encoded_value = URL_SAFE.decode(cookie.value())?;
         // let value = ;
 
-        let cipher = Aes256GcmSiv::new_from_slice(&AUTH_KEY).map_err(|e| anyhow!("Invalid key"))?;
+        let cipher =
+            Aes256GcmSiv::new_from_slice(&AUTH_KEY).map_err(|_e| anyhow!("Invalid key"))?;
         let nonce_size = Nonce::default().len();
         let len = encoded_value.len();
         let nonce = Nonce::from_slice(&encoded_value[len - nonce_size..]);
 
         let ciphertext = cipher
             .decrypt(nonce, &encoded_value[..len - nonce_size])
-            .map_err(|e| anyhow!("Invalid decrypt"))?;
+            .map_err(|_e| anyhow!("Invalid decrypt"))?;
 
         let decoded_user = bincode::deserialize::<User>(&ciphertext)?;
 

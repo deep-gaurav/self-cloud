@@ -64,6 +64,7 @@ async fn handle_logs_socket(mut socket: WebSocket, container: Arc<Container>) {
                         }
                     }
                     Err(err) => {
+                        warn!("Log Stream gave error {err:?}");
                         // yield Err(axum::BoxError::new(anyhow::anyhow!("{err:#?}")))
                     }
                 }

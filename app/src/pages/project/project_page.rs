@@ -516,9 +516,10 @@ pub fn DomainsList() -> impl IntoView {
     );
 
     let Pausable {
-        pause,
-        resume,
-        is_active,
+        ..
+        // pause,
+        // resume,
+        // is_active,
     } = use_interval_fn(
         move || {
             domains.refetch();

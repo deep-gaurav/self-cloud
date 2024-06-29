@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use app::common::{
-    ContainerStatus, DomainStatus, Project, SSLProvisioning, DOMAIN_MAPPING, PROJECTS,
-};
+use app::common::{DomainStatus, Project, SSLProvisioning, DOMAIN_MAPPING, PROJECTS};
 use axum::{body::Bytes, http::header};
 use openssl::ssl::NameType;
 use pingora::{
@@ -10,7 +8,8 @@ use pingora::{
     proxy::{http_proxy_service_with_name, HttpProxy, ProxyHttp, Session},
     server::Server,
     services::listening::Service,
-    upstreams::peer::HttpPeer, Result,
+    upstreams::peer::HttpPeer,
+    Result,
 };
 use tracing::{info, warn};
 use unicase::UniCase;
@@ -183,7 +182,7 @@ impl ProxyHttp for Gateway {
                                 return Ok(port.peer.clone());
                             }
                             app::common::ProjectType::Container(container) => {
-                                if let ContainerStatus::Running(pod) = &container.status {
+                                if container.status.is_running() {
                                     let port = container.exposed_ports.iter().find(|cont| {
                                         cont.domains.iter().any(|dom| &dom.name == host)
                                     });

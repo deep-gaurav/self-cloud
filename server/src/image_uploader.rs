@@ -1,7 +1,4 @@
-use std::{
-    io::Cursor,
-    sync::Arc,
-};
+use std::{io::Cursor, sync::Arc};
 
 use app::common::{get_docker, ContainerStatus, ProjectType, PROJECTS};
 use axum::{
@@ -77,8 +74,8 @@ pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String)
                                     }
                                 }
                                 docker_api::models::ImageBuildChunk::Error {
-                                    error,
-                                    error_detail,
+                                    error: _,
+                                    error_detail: _,
                                 } => {
                                     break 'ba Err(docker_api::Error::Any("failed".into()));
                                 }
@@ -86,10 +83,10 @@ pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String)
                                     break 'ba Ok(aux.id.to_string());
                                 }
                                 docker_api::models::ImageBuildChunk::PullStatus {
-                                    status,
-                                    id,
-                                    progress,
-                                    progress_detail,
+                                    status: _,
+                                    id: _,
+                                    progress: _,
+                                    progress_detail: _,
                                 } => {}
                             },
                             Err(err) => {

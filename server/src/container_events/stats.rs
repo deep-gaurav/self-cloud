@@ -61,6 +61,7 @@ async fn handle_stats_socket(mut socket: WebSocket, container: Arc<Container>) {
                         }
                     }
                     Err(err) => {
+                        warn!("Stats stream gave error {err:?}")
                         // yield Err(axum::BoxError::new(anyhow::anyhow!("{err:#?}")))
                     }
                 }

@@ -1,13 +1,13 @@
 use std::collections::VecDeque;
 
 use leptos::{
-    component, create_effect, create_node_ref, create_resource,
-    create_server_action, expect_context, prelude::*, view, For, IntoView, Transition,
+    component, create_effect, create_node_ref, create_resource, create_server_action,
+    expect_context, prelude::*, view, For, IntoView, Transition,
 };
 use leptos_chartistry::IntoInner;
 use leptos_chartistry::{
-    AspectRatio, AxisMarker, Chart, Line, RotatedLabel, Series, TickLabels, Tooltip,
-    XGridLine, XGuideLine, YGridLine, YGuideLine,
+    AspectRatio, AxisMarker, Chart, Line, RotatedLabel, Series, TickLabels, Tooltip, XGridLine,
+    XGuideLine, YGridLine, YGuideLine,
 };
 use leptos_use::{use_interval_fn, utils::Pausable};
 use leptos_use::{use_websocket, UseWebsocketReturn};
@@ -34,9 +34,10 @@ pub fn ContainerPage() -> impl IntoView {
     );
 
     let Pausable {
-        pause,
-        resume,
-        is_active,
+        // pause,
+        // resume,
+        // is_active,
+        ..
     } = use_interval_fn(
         move || {
             container.refetch();
@@ -299,7 +300,7 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                 Ok(patch) => {
                     let mut data = received_json.get_untracked();
 
-                    if let Err(err) = json_patch::patch(&mut data, &patch) {
+                    if let Err(_err) = json_patch::patch(&mut data, &patch) {
                         warn!("Json patch failed")
                     } else {
                         set_received_json.set(data.clone());
@@ -320,7 +321,7 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                     }
                 }
                 Err(err) => {
-                    tracing::warn!("Received data not json-patch")
+                    tracing::warn!("Received data not json-patch {err:?}")
                 }
             }
         }
@@ -430,7 +431,7 @@ pub fn ContainerLogs(id: Uuid) -> impl IntoView {
                     }
                 }
                 Err(err) => {
-                    tracing::warn!("Received data not tty-chunk")
+                    tracing::warn!("Received data not tty-chunk {err:?}")
                 }
             }
         }

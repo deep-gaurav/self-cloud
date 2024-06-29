@@ -35,7 +35,7 @@ pub async fn pause_container(id: Uuid) -> Result<(), ServerFnError> {
             container
                 .pause()
                 .await
-                .map_err(|e| ServerFnError::new("Cannot pause container"))?;
+                .map_err(|e| ServerFnError::new(format!("Cannot pause container {e:#?}")))?;
             Ok(())
         } else {
             Err(ServerFnError::new("container not running"))
@@ -54,7 +54,7 @@ pub async fn resume_container(id: Uuid) -> Result<(), ServerFnError> {
             container
                 .unpause()
                 .await
-                .map_err(|e| ServerFnError::new("Cannot resume container"))?;
+                .map_err(|e| ServerFnError::new(format!("Cannot resume container {e:?}")))?;
             Ok(())
         } else {
             Err(ServerFnError::new("container not running"))
@@ -73,7 +73,7 @@ pub async fn stop_container(id: Uuid) -> Result<(), ServerFnError> {
             container
                 .stop(&docker_api::opts::ContainerStopOpts::builder().build())
                 .await
-                .map_err(|e| ServerFnError::new("Cannot stop container"))?;
+                .map_err(|e| ServerFnError::new(format!("Cannot stop container {e:?}")))?;
             Ok(())
         } else {
             Err(ServerFnError::new("container not running"))
@@ -92,7 +92,7 @@ pub async fn start_container(id: Uuid) -> Result<(), ServerFnError> {
             container
                 .start()
                 .await
-                .map_err(|e| ServerFnError::new("Cannot start container"))?;
+                .map_err(|e| ServerFnError::new(format!("Cannot start container {e:?}")))?;
             Ok(())
         } else {
             Err(ServerFnError::new("container not running"))
@@ -160,8 +160,6 @@ pub async fn get_project(id: Uuid) -> Result<Project, ServerFnError> {
 
 #[cfg(feature = "ssr")]
 pub async fn get_project_arc(id: Uuid) -> anyhow::Result<std::sync::Arc<Project>> {
-    
-
     use crate::common::PROJECTS;
 
     let projects = PROJECTS.read().await;
