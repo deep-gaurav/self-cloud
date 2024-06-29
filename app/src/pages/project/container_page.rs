@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 use leptos::{
     component, create_effect, create_node_ref, create_resource, create_server_action,
@@ -12,13 +13,13 @@ use leptos_chartistry::{
 use leptos_use::{use_interval_fn, utils::Pausable};
 use leptos_use::{use_websocket, UseWebsocketReturn};
 use serde::{Deserialize, Serialize};
-use tracing::warn;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::api::{
     inspect_container, PauseContainer, ResumeContainer, StartContainer, StopContainer,
 };
-use crate::common::TtyChunk;
+use crate::common::{AttachParams, TtyChunk};
 
 #[component]
 pub fn ContainerPage() -> impl IntoView {
@@ -185,6 +186,7 @@ pub fn ContainerSubPages(id: Uuid) -> impl IntoView {
     enum ContainerPageType {
         Logs,
         Stats,
+        Attach,
     }
 
     #[derive(Clone)]
@@ -204,6 +206,11 @@ pub fn ContainerSubPages(id: Uuid) -> impl IntoView {
             name: "Stats",
             icon: icondata::ImStatsDots,
             r#type: ContainerPageType::Stats,
+        },
+        ContainerPage {
+            name: "Attach",
+            icon: icondata::IoTerminal,
+            r#type: ContainerPageType::Attach,
         },
     ]);
     let (selected_page, set_selected_page) = create_signal(container_sub_pages[0].r#type);
@@ -244,6 +251,11 @@ pub fn ContainerSubPages(id: Uuid) -> impl IntoView {
                         <ContainerStats id />
                     }
                 },
+                ContainerPageType::Attach => {
+                    view! {
+                        <ContainerAttach id />
+                    }
+                }
             }
         }
     }
@@ -440,5 +452,88 @@ pub fn ContainerLogs(id: Uuid) -> impl IntoView {
     view! {
         <div _ref=div_ref class="bg-white p-2 rounded-md border text-black whitespace-break-spaces max-h-80 overflow-auto">
         </div>
+    }
+}
+
+#[component]
+pub fn ContainerAttach(id: Uuid) -> impl IntoView {
+    let params = AttachParams {
+        command: "/usr/bin/bash".to_string(),
+        size_height: 24,
+        size_width: 80,
+    };
+    let params = serde_urlencoded::to_string(&params).unwrap_or_default();
+    // Create server signal
+    let UseWebsocketReturn {
+        // ready_state,
+        // message,
+        message_bytes,
+        send,
+        // send_bytes,
+        // open,
+        // close,
+        ..
+    } = use_websocket(&format!("/events/container/{id}/attach/ws?{params}"));
+
+    let parser = create_rw_signal(Arc::new(Mutex::new(vt100::Parser::new(24, 80, 0))));
+
+    let div_ref = create_node_ref::<leptos::html::Div>();
+
+    create_effect(move |_| {
+        let message = message_bytes.get();
+        if let Some(message) = message {
+            let chunk = bincode::deserialize::<TtyChunk>(&message);
+            match chunk {
+                Ok(chunk) => {
+                    let parser = parser.get_untracked();
+                    let mut parser_lock = parser.lock();
+                    match &mut parser_lock {
+                        Ok(parser) => {
+                            parser.process(chunk.as_ref());
+                            let content = parser.screen().contents_formatted();
+                            let content_str = std::str::from_utf8(&content);
+                            match content_str {
+                                Ok(content_str) => {
+                                    let html = ansi_to_html::convert(content_str);
+                                    match html {
+                                        Ok(html) => {
+                                            if let Some(div) = div_ref.get_untracked() {
+                                                div.set_inner_html(html.as_str());
+                                            }
+                                        }
+                                        Err(err) => {
+                                            warn!("Cannot convert to html");
+                                        }
+                                    }
+                                }
+                                Err(err) => {
+                                    warn!("Screen not valid {err:?}")
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            warn!("Cant lock parser {err:?}");
+                        }
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!("Received data not tty-chunk {err:?}")
+                }
+            }
+        }
+    });
+
+    view! {
+        <div _ref=div_ref class="bg-white p-2 rounded-md border text-black whitespace-break-spaces overflow-auto">
+        </div>
+        <div class="h-2" />
+        <input type="text" class="border w-full p-2"
+            on:blur=move|ev|{
+                use leptos::event_target_value;
+
+                let val = event_target_value(&ev);
+                send(&val);
+            }
+        />
     }
 }

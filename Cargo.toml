@@ -116,6 +116,9 @@ ansi-to-html = "0.2.1"
 leptos_icons = "0.3"
 icondata = "0.3"
 
+serde_urlencoded = "0.7.1"
+vt100 = "0.15.2"
+
 # See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
 
 # A leptos project defines which workspace members
@@ -200,7 +203,7 @@ tailwind-input-file = "style/tailwind.css"
 tailwind-config-file = "tailwind.config.js"
 
 
-bin-target-triple = "x86_64-unknown-linux-gnu"
+# bin-target-triple = "x86_64-unknown-linux-gnu"
 
 
 bin-profile-release = "binrelease"

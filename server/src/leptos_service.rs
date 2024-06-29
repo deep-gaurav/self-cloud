@@ -27,7 +27,9 @@ use tracing::info;
 
 use crate::{
     auth::get_authorized_users,
-    container_events::{logs::container_logs_ws, stats::container_stats_ws},
+    container_events::{
+        attach::container_attach_ws, logs::container_logs_ws, stats::container_stats_ws,
+    },
     fileserv::file_and_error_handler,
     image_uploader,
     tls_gen::{acme_handler, TLSState},
@@ -119,6 +121,7 @@ async fn run_main(tls_state: TLSState) {
         .route("/.well-known/acme-challenge/:token", get(acme_handler))
         .route("/events/container/:id/stats/ws", get(container_stats_ws))
         .route("/events/container/:id/logs/ws", get(container_logs_ws))
+        .route("/events/container/:id/attach/ws", get(container_attach_ws))
         .fallback(file_and_error_handler)
         .with_state(app_state)
         .layer(compression)

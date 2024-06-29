@@ -665,3 +665,10 @@ impl AsRef<[u8]> for TtyChunk {
         }
     }
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct AttachParams {
+    pub command: String,
+    pub size_width: u64,
+    pub size_height: u64,
+}
