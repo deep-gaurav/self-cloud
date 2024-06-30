@@ -58,6 +58,9 @@ icondata.workspace = true
 serde_urlencoded.workspace = true
 vt100.workspace = true
 
+wasm-bindgen.workspace = true
+js-sys.workspace = true
+
 [features]
 default = []
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]

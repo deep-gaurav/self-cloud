@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
+use leptos::ev::Event;
 use leptos::{
     component, create_effect, create_node_ref, create_resource, create_server_action,
     expect_context, prelude::*, view, For, IntoView, Transition,
@@ -15,11 +16,14 @@ use leptos_use::{use_websocket, UseWebsocketReturn};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 use uuid::Uuid;
+use wasm_bindgen::closure::Closure;
+use wasm_bindgen::{JsCast, JsValue};
 
 use crate::api::{
     inspect_container, PauseContainer, ResumeContainer, StartContainer, StopContainer,
 };
 use crate::common::{AttachParams, TtyChunk};
+use crate::utils::xterm::Terminal;
 
 #[component]
 pub fn ContainerPage() -> impl IntoView {
@@ -457,83 +461,103 @@ pub fn ContainerLogs(id: Uuid) -> impl IntoView {
 
 #[component]
 pub fn ContainerAttach(id: Uuid) -> impl IntoView {
-    let params = AttachParams {
-        command: "/usr/bin/bash".to_string(),
-        size_height: 24,
-        size_width: 80,
-    };
-    let params = serde_urlencoded::to_string(&params).unwrap_or_default();
-    // Create server signal
-    let UseWebsocketReturn {
-        // ready_state,
-        // message,
-        message_bytes,
-        send,
-        // send_bytes,
-        // open,
-        // close,
-        ..
-    } = use_websocket(&format!("/events/container/{id}/attach/ws?{params}"));
-
-    let parser = create_rw_signal(Arc::new(Mutex::new(vt100::Parser::new(24, 80, 0))));
-
     let div_ref = create_node_ref::<leptos::html::Div>();
 
+    let (terminal, set_terminal) = create_signal(Option::<std::rc::Rc<Terminal>>::None);
+
     create_effect(move |_| {
-        let message = message_bytes.get();
-        if let Some(message) = message {
-            let chunk = bincode::deserialize::<TtyChunk>(&message);
-            match chunk {
-                Ok(chunk) => {
-                    let parser = parser.get_untracked();
-                    let mut parser_lock = parser.lock();
-                    match &mut parser_lock {
-                        Ok(parser) => {
-                            parser.process(chunk.as_ref());
-                            let content = parser.screen().contents_formatted();
-                            let content_str = std::str::from_utf8(&content);
-                            match content_str {
-                                Ok(content_str) => {
-                                    let html = ansi_to_html::convert(content_str);
-                                    match html {
-                                        Ok(html) => {
-                                            if let Some(div) = div_ref.get_untracked() {
-                                                div.set_inner_html(html.as_str());
-                                            }
-                                        }
-                                        Err(err) => {
-                                            warn!("Cannot convert to html");
-                                        }
-                                    }
-                                }
-                                Err(err) => {
-                                    warn!("Screen not valid {err:?}")
-                                }
-                            }
+        if let Some(terminal) = terminal.get() {
+            let params = AttachParams {
+                command: "/usr/bin/bash".to_string(),
+                size_height: terminal.rows() as u64,
+                size_width: terminal.cols() as u64,
+            };
+            let params = serde_urlencoded::to_string(&params).unwrap_or_default();
+            // Create server signal
+            let UseWebsocketReturn {
+                // ready_state,
+                // message,
+                message_bytes,
+                send,
+                // send_bytes,
+                // open,
+                // close,
+                ..
+            } = use_websocket(&format!("/events/container/{id}/attach/ws?{params}"));
+
+            let closure = Closure::wrap(Box::new(move |data: JsValue| {
+                let event = data.as_string();
+                if let Some(event) = event {
+                    send(&event);
+                } else {
+                    tracing::info!("Data is not string {data:?}");
+                }
+            }) as Box<dyn Fn(JsValue)>);
+
+            terminal.onData(closure.as_ref().unchecked_ref());
+            closure.forget();
+
+            create_effect(move |_| {
+                let message = message_bytes.get();
+                if let Some(message) = message {
+                    let chunk = bincode::deserialize::<TtyChunk>(&message);
+                    match chunk {
+                        Ok(chunk) => {
+                            let uint8_array = unsafe { js_sys::Uint8Array::view(chunk.as_ref()) };
+                            terminal.write(&uint8_array);
+                            // let mut parser_lock = parser.lock();
+                            // match &mut parser_lock {
+                            //     Ok(parser) => {
+                            //         parser.process(chunk.as_ref());
+                            //         let content = parser.screen().contents_formatted();
+                            //         let content_str = std::str::from_utf8(&content);
+                            //         match content_str {
+                            //             Ok(content_str) => {
+                            //                 let html = ansi_to_html::convert(content_str);
+                            //                 match html {
+                            //                     Ok(html) => {
+                            //                         if let Some(div) = div_ref.get_untracked() {
+                            //                             div.set_inner_html(html.as_str());
+                            //                         }
+                            //                     }
+                            //                     Err(err) => {
+                            //                         warn!("Cannot convert to html");
+                            //                     }
+                            //                 }
+                            //             }
+                            //             Err(err) => {
+                            //                 warn!("Screen not valid {err:?}")
+                            //             }
+                            //         }
+                            //     }
+                            //     Err(err) => {
+                            //         warn!("Cant lock parser {err:?}");
+                            //     }
+                            // }
                         }
                         Err(err) => {
-                            warn!("Cant lock parser {err:?}");
+                            tracing::warn!("Received data not tty-chunk {err:?}")
                         }
                     }
                 }
-                Err(err) => {
-                    tracing::warn!("Received data not tty-chunk {err:?}")
-                }
-            }
+            });
         }
     });
 
     view! {
-        <div _ref=div_ref class="bg-white p-2 rounded-md border text-black whitespace-break-spaces overflow-auto">
-        </div>
-        <div class="h-2" />
-        <input type="text" class="border w-full p-2"
-            on:blur=move|ev|{
-                use leptos::event_target_value;
-
-                let val = event_target_value(&ev);
-                send(&val);
+        <link href="/css/xterm.min.css " rel="stylesheet" />
+        <script src="/js/xterm.min.js"
+            on:load=move|_|{
+                let terminal = Terminal::new();
+                if let Some(div) = div_ref.get_untracked() {
+                    tracing::info!("Open terminal");
+                    terminal.open(&div);
+                }
+                use std::rc::Rc;
+                set_terminal.set(Some(Rc::new(terminal)));
             }
         />
+        <div _ref=div_ref class="">
+        </div>
     }
 }

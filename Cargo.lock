@@ -157,6 +157,7 @@ dependencies = [
  "docker-api-stubs",
  "http 1.1.0",
  "icondata",
+ "js-sys",
  "json-patch 2.0.0",
  "leptos",
  "leptos-chartistry",
@@ -181,6 +182,7 @@ dependencies = [
  "unicase_serde",
  "uuid",
  "vt100",
+ "wasm-bindgen",
 ]
 
 [[package]]

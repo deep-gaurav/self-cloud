@@ -92,11 +92,6 @@ async fn handle_attach_socket(
                                                     if let Err(err) =  input_sender.write_all(text.as_bytes()).await{
                                                         warn!("Cant send intput {err:?}");
                                                     }
-                                                    if let Err(err) =  input_sender.write_all("\n".as_bytes()).await{
-                                                        warn!("Cant send intput {err:?}");
-                                                    }
-
-
                                                 },
                                                 Message::Binary(data) => {
                                                     if let Err(err) =  input_sender.write_all(&data).await{

@@ -119,6 +119,7 @@ icondata = "0.3"
 serde_urlencoded = "0.7.1"
 vt100 = "0.15.2"
 
+js-sys = "0.3"
 # See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
 
 # A leptos project defines which workspace members
