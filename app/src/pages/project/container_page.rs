@@ -510,6 +510,10 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
 
             terminal.onData(closure.as_ref().unchecked_ref());
             closure.forget();
+            let vt = vt100::Parser::new(terminal.rows() as u16, terminal.cols() as u16, 0);
+            // let screen = vt.screen().clone(); TODO: use for diff
+            let vt_rc = std::rc::Rc::new(Mutex::new(vt));
+            // let screen = std::rc::Rc::new(Mutex::new(screen)); // TODO: use for diff
 
             create_effect(move |_| {
                 let message = message_bytes.get();
@@ -517,8 +521,23 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
                     let chunk = bincode::deserialize::<TtyChunk>(&message);
                     match chunk {
                         Ok(chunk) => {
-                            let uint8_array = unsafe { js_sys::Uint8Array::view(chunk.as_ref()) };
-                            terminal.write(&uint8_array);
+                            if let Ok(mut vt) = vt_rc.lock() {
+                                vt.process(chunk.as_ref());
+                                let new_screen = vt.screen().clone();
+                                let contents = new_screen.contents_formatted(); // TODO: Remove vt100 or use diff
+                                                                                // *screen = new_screen;
+                                let contents_str = std::str::from_utf8(&contents);
+                                if let Ok(contents_str) = contents_str {
+                                    let uint8_array = contents_str.into();
+                                    terminal.clear();
+                                    terminal.write(&uint8_array);
+                                } else {
+                                    let uint8_array =
+                                        unsafe { js_sys::Uint8Array::view(contents.as_ref()) };
+                                    terminal.clear();
+                                    terminal.write(&uint8_array);
+                                }
+                            }
                         }
                         Err(err) => {
                             tracing::warn!("Received data not tty-chunk {err:?}")
@@ -533,13 +552,26 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
         <link href="/css/xterm.min.css " rel="stylesheet" />
         <script src="/js/xterm.min.js"
             on:load=move|_|{
-                let terminal = Terminal::new();
-                if let Some(div) = div_ref.get_untracked() {
-                    tracing::info!("Open terminal");
-                    terminal.open(&div);
+                #[derive(Serialize)]
+                struct TerminalOptions {
+                    scrollback: u64,
                 }
-                use std::rc::Rc;
-                set_terminal.set(Some(Rc::new(terminal)));
+
+                let options = serde_wasm_bindgen::to_value(&TerminalOptions{
+                    scrollback: 0
+                });
+                if let Ok(options) = options {
+
+                    let terminal = Terminal::new(&options);
+                    if let Some(div) = div_ref.get_untracked() {
+                        tracing::info!("Open terminal");
+                        terminal.open(&div);
+                    }
+                    use std::rc::Rc;
+                    set_terminal.set(Some(Rc::new(terminal)));
+                }else{
+                    tracing::warn!("Cant convert terminalOptions");
+                }
             }
         />
         <div _ref=div_ref class="">

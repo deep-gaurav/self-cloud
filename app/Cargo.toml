@@ -60,6 +60,7 @@ vt100.workspace = true
 
 wasm-bindgen.workspace = true
 js-sys.workspace = true
+serde-wasm-bindgen.workspace = true
 
 [features]
 default = []

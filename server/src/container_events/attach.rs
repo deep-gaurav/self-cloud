@@ -54,7 +54,7 @@ async fn handle_attach_socket(
         .exec(
             &ExecCreateOpts::builder()
                 .command(vec![attach_params.command])
-                .attach_stdout(true)
+                .attach_stderr(true)
                 .attach_stdout(true)
                 .attach_stdin(true)
                 .working_dir("/")

@@ -6,7 +6,7 @@ extern "C" {
     pub type Terminal;
 
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Terminal;
+    pub fn new(options: &JsValue) -> Terminal;
 
     #[wasm_bindgen(method)]
     pub fn open(this: &Terminal, element: &JsValue);
@@ -21,5 +21,11 @@ extern "C" {
     pub fn write(this: &Terminal, data: &JsValue);
 
     #[wasm_bindgen(method)]
+    pub fn writeln(this: &Terminal, data: &JsValue);
+
+    #[wasm_bindgen(method)]
     pub fn onData(this: &Terminal, callback: &Function);
+
+    #[wasm_bindgen(method)]
+    pub fn clear(this: &Terminal);
 }
