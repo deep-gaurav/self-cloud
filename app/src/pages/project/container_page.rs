@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Mutex;
 
 use leptos::{
     component, create_effect, create_node_ref, create_resource, create_server_action,
@@ -306,8 +307,9 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
         ..
     } = use_websocket(&format!("/events/container/{id}/stats/ws"));
 
-    let (stats_vecdq, set_stats_vecdq) = create_signal(VecDeque::with_capacity(30));
-    let stats_vec = create_memo(move |_| Vec::from(stats_vecdq.get()));
+    let (stats_vecdq, _set_stats_vecdq) =
+        create_signal(std::rc::Rc::new(Mutex::new(VecDeque::with_capacity(30))));
+    let (stats_vec, set_stats_vec) = create_signal(Vec::new());
 
     let (received_json, set_received_json) = create_signal(serde_json::Value::Null);
     create_effect(move |_| {
@@ -325,12 +327,22 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                         let stats = serde_json::from_value::<Stats>(data);
                         match stats {
                             Ok(stats) => {
-                                let mut data = stats_vecdq.get_untracked();
-                                if data.len() >= 30 {
-                                    data.pop_front();
+                                let data = stats_vecdq.get_untracked();
+                                let lock = data.lock();
+                                match lock {
+                                    Ok(mut data) => {
+                                        if data.len() >= 30 {
+                                            data.pop_front();
+                                        }
+                                        data.push_back(stats);
+                                        let data_arranged = data.make_contiguous();
+                                        let data_vec = Vec::from(data_arranged);
+                                        set_stats_vec.set(data_vec);
+                                    }
+                                    Err(_) => {
+                                        warn!("Cant lock dq");
+                                    }
                                 }
-                                data.push_back(stats);
-                                set_stats_vecdq.set(data);
                             }
                             Err(err) => {
                                 warn!("Failed to parse json to stats {err:?}")
