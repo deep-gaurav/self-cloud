@@ -35,59 +35,62 @@ pub fn ProjectsList() -> impl IntoView {
     });
 
     view! {
-        <h1 class="text-4xl">"Projects"</h1>
-
         <div class="p-2">
-            <ActionForm action=add_new_project>
-                <div class="w-full rounded-md flex gap-5">
-                    <input
-                        name="name"
-                        id="domain"
-                        placeholder="New Project name"
-                        class="p-2 border w-full rounded bg-white dark:bg-white/10 dark:border-white/5"
-                        on:input=move |ev| {
-                            set_new_project_name.set(event_target_value(&ev));
-                        }
 
-                        prop:value=new_project_name
-                    />
-                    <input
-                        type="submit"
-                        value="Add"
-                        class="border p-2 px-10 rounded bg-slate-800 text-white disabled:cursor-no-drop disabled:bg-slate-200 disabled:text-black dark:disabled:bg-white/20 dark:disabled:text-white dark:border-none dark:bg-white/90 dark:text-black"
-                        disabled=move || new_project_name.get().is_empty()
-                        prop:disabled=move || new_project_name.get().is_empty()
-                    />
-                </div>
-            </ActionForm>
+            <h1 class="text-4xl">"Projects"</h1>
+
+            <div class="p-2">
+                <ActionForm action=add_new_project>
+                    <div class="w-full rounded-md flex gap-5">
+                        <input
+                            name="name"
+                            id="domain"
+                            placeholder="New Project name"
+                            class="p-2 border w-full rounded bg-white dark:bg-white/10 dark:border-white/5"
+                            on:input=move |ev| {
+                                set_new_project_name.set(event_target_value(&ev));
+                            }
+
+                            prop:value=new_project_name
+                        />
+                        <input
+                            type="submit"
+                            value="Add"
+                            class="border p-2 px-10 rounded bg-slate-800 text-white disabled:cursor-no-drop disabled:bg-slate-200 disabled:text-black dark:disabled:bg-white/20 dark:disabled:text-white dark:border-none dark:bg-white/90 dark:text-black"
+                            disabled=move || new_project_name.get().is_empty()
+                            prop:disabled=move || new_project_name.get().is_empty()
+                        />
+                    </div>
+                </ActionForm>
+            </div>
+
+            <Suspense>
+
+                {move || {
+                    projects
+                        .get()
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|p| {
+                            view! {
+                                <div class="p-2">
+                                    <A
+                                        href=p.id.to_string()
+                                        class="w-full rounded-md p-4 block border bg-white/60 hover:bg-white transition-all hover:shadow-md dark:border-white/20 dark:bg-white/5 dark:hover:bg-white/10 dark:hover:shadow-white/50"
+                                    >
+                                        <div class="text-xl">{p.name}</div>
+                                        <div class="text-slate-600 text-sm">{p.id.to_string()}</div>
+                                        <div class="h-2"></div>
+                                    // <div > "Port: " {p.port} </div>
+                                    </A>
+                                </div>
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                }}
+
+            </Suspense>
         </div>
-
-        <Suspense>
-
-            {move || {
-                projects
-                    .get()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|p| {
-                        view! {
-                            <div class="p-2">
-                                <A
-                                    href=p.id.to_string()
-                                    class="w-full shadow-md rounded-md p-4 block"
-                                >
-                                    <div class="text-xl">{p.name}</div>
-                                    <div class="text-slate-600 text-sm">{p.id.to_string()}</div>
-                                    <div class="h-2"></div>
-                                // <div > "Port: " {p.port} </div>
-                                </A>
-                            </div>
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            }}
-
-        </Suspense>
     }
 }
 

@@ -14,14 +14,19 @@ use docker_api::{
 };
 use futures::{AsyncWriteExt, SinkExt, StreamExt};
 use http::StatusCode;
+use tower_cookies::Cookies;
 use tracing::warn;
 use uuid::Uuid;
 
+use super::ensure_authorized_user;
+
 pub async fn container_attach_ws(
+    cookies: Cookies,
     Path(project_id): Path<Uuid>,
     Query(attach_params): Query<AttachParams>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, (axum::http::StatusCode, String)> {
+    ensure_authorized_user(cookies)?;
     let container = {
         let projects = PROJECTS.read().await;
         let project = projects
@@ -41,7 +46,7 @@ pub async fn container_attach_ws(
 }
 
 async fn handle_attach_socket(
-    mut socket: WebSocket,
+    socket: WebSocket,
     container: Arc<Container>,
     attach_params: AttachParams,
 ) {

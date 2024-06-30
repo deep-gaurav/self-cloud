@@ -11,13 +11,18 @@ use axum::{
 use docker_api::{opts::LogsOpts, Container};
 use http::StatusCode;
 use tokio_stream::StreamExt;
+use tower_cookies::Cookies;
 use tracing::warn;
 use uuid::Uuid;
 
+use super::ensure_authorized_user;
+
 pub async fn container_logs_ws(
+    cookies: Cookies,
     Path(project_id): Path<Uuid>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, (axum::http::StatusCode, String)> {
+    ensure_authorized_user(cookies)?;
     let container = {
         let projects = PROJECTS.read().await;
         let project = projects

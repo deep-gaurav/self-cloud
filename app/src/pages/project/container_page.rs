@@ -1,7 +1,5 @@
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
 
-use leptos::ev::Event;
 use leptos::{
     component, create_effect, create_node_ref, create_resource, create_server_action,
     expect_context, prelude::*, view, For, IntoView, Transition,
@@ -14,7 +12,7 @@ use leptos_chartistry::{
 use leptos_use::{use_interval_fn, utils::Pausable};
 use leptos_use::{use_websocket, UseWebsocketReturn};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::warn;
 use uuid::Uuid;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
@@ -24,6 +22,7 @@ use crate::api::{
 };
 use crate::common::{AttachParams, TtyChunk};
 use crate::utils::xterm::Terminal;
+use leptos_icons::Icon;
 
 #[component]
 pub fn ContainerPage() -> impl IntoView {
@@ -220,19 +219,22 @@ pub fn ContainerSubPages(id: Uuid) -> impl IntoView {
     let (selected_page, set_selected_page) = create_signal(container_sub_pages[0].r#type);
 
     view! {
-        <div class="flex border-black border-b items-end gap-1 px-2">
+        <div class="flex border-black dark:border-white/80 border-b items-end gap-1 px-2">
             <For
                 each=move || container_sub_pages.clone()
                 key=|page| page.r#type.clone()
                 children=move |page| {
                     view! {
-                        <button class="p-2 border border-black mb-[-0.05em] rounded-t-lg"
-                            class=(["border-b-slate-100", "p-3"], move || page.r#type == selected_page.get())
+                        <button class="p-2 border dark:border-white/80 border-black mb-[-0.05em] rounded-t-lg flex gap-2 items-center"
+                            class=(["border-b-slate-100","dark:border-b-black", "p-3"], move || page.r#type == selected_page.get())
 
                             on:click = move |_| {
                                 set_selected_page.set(page.r#type)
                             }
                         >
+                            <Icon
+                                icon={page.icon}
+                            />
                             {
                                 page.name
                             }
@@ -505,35 +507,6 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
                         Ok(chunk) => {
                             let uint8_array = unsafe { js_sys::Uint8Array::view(chunk.as_ref()) };
                             terminal.write(&uint8_array);
-                            // let mut parser_lock = parser.lock();
-                            // match &mut parser_lock {
-                            //     Ok(parser) => {
-                            //         parser.process(chunk.as_ref());
-                            //         let content = parser.screen().contents_formatted();
-                            //         let content_str = std::str::from_utf8(&content);
-                            //         match content_str {
-                            //             Ok(content_str) => {
-                            //                 let html = ansi_to_html::convert(content_str);
-                            //                 match html {
-                            //                     Ok(html) => {
-                            //                         if let Some(div) = div_ref.get_untracked() {
-                            //                             div.set_inner_html(html.as_str());
-                            //                         }
-                            //                     }
-                            //                     Err(err) => {
-                            //                         warn!("Cannot convert to html");
-                            //                     }
-                            //                 }
-                            //             }
-                            //             Err(err) => {
-                            //                 warn!("Screen not valid {err:?}")
-                            //             }
-                            //         }
-                            //     }
-                            //     Err(err) => {
-                            //         warn!("Cant lock parser {err:?}");
-                            //     }
-                            // }
                         }
                         Err(err) => {
                             tracing::warn!("Received data not tty-chunk {err:?}")

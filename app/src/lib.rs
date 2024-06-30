@@ -4,6 +4,8 @@ use crate::{
     pages::project::project_page::{DomainsList, ProjectSettings},
 };
 
+use crate::auth::Login;
+use crate::components::nav_bar::NavBar;
 use crate::pages::dashboard::Dashboard;
 use crate::pages::home::HomePage;
 use crate::pages::project::container_page::ContainerPage;
@@ -13,11 +15,10 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
-use crate::auth::Login;
-
 pub mod api;
 pub mod auth;
 pub mod common;
+pub mod components;
 pub mod error_template;
 pub mod pages;
 pub mod utils;
@@ -112,7 +113,10 @@ pub fn AuthCheck(
                             if !is_auth_required {
                                 view! { <Redirect path="/dashboard"/> }.into_view()
                             } else {
-                                view! { <Outlet/> }.into_view()
+                                view! {
+                                    <NavBar/>
+                                    <Outlet/>
+                                }.into_view()
                             }
                         }
                     }

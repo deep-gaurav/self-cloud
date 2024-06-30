@@ -30,7 +30,7 @@ impl BackgroundService for ContainerManager {
                     break;
                 }
                 _ = period.tick() => {
-                    tracing::info!("Container tick");
+                    tracing::debug!("Container tick");
                     let mut peers = PROJECTS.write().await;
                     for (_id, project) in peers.iter_mut() {
                         if let ProjectType::Container(container) = &project.project_type {
