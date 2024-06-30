@@ -34,7 +34,7 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/start-axum-workspace.css"/>
 
         // sets the document title
-        <Title text="Welcome to Leptos"/>
+        <Title text="Welcome to SelfCloud"/>
 
         // content for this welcome page
         <Router fallback=|| {
