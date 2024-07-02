@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::anyhow;
 use leptos::{expect_context, server, use_context, ServerFnError};
 use uuid::Uuid;
 
@@ -13,7 +12,11 @@ pub async fn inspect_container(
     id: Uuid,
 ) -> Result<docker_api_stubs::models::ContainerInspect200Response, ServerFnError> {
     user()?;
-    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    let context = project_context()?;
+    let project = context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container(container) = &project.project_type {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             let inspect = container.inspect().await?;
@@ -29,7 +32,12 @@ pub async fn inspect_container(
 #[server(PauseContainer)]
 pub async fn pause_container(id: Uuid) -> Result<(), ServerFnError> {
     user()?;
-    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+
+    let context = project_context()?;
+    let project = context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container(container) = &project.project_type {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             container
@@ -48,7 +56,11 @@ pub async fn pause_container(id: Uuid) -> Result<(), ServerFnError> {
 #[server(ResumeContainer)]
 pub async fn resume_container(id: Uuid) -> Result<(), ServerFnError> {
     user()?;
-    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    let context = project_context()?;
+    let project = context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container(container) = &project.project_type {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             container
@@ -67,7 +79,12 @@ pub async fn resume_container(id: Uuid) -> Result<(), ServerFnError> {
 #[server(StopContainer)]
 pub async fn stop_container(id: Uuid) -> Result<(), ServerFnError> {
     user()?;
-    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+
+    let context = project_context()?;
+    let project = context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container(container) = &project.project_type {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             container
@@ -86,7 +103,12 @@ pub async fn stop_container(id: Uuid) -> Result<(), ServerFnError> {
 #[server(StartContainer)]
 pub async fn start_container(id: Uuid) -> Result<(), ServerFnError> {
     user()?;
-    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+
+    let context = project_context()?;
+    let project = context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container(container) = &project.project_type {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             container
@@ -104,40 +126,25 @@ pub async fn start_container(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(AddProject)]
 pub async fn add_project(name: String) -> Result<Project, ServerFnError> {
-    use crate::common::PROJECTS;
-
     user()?;
-    let id = uuid::Uuid::new_v4();
 
-    let reserve_port = 3000;
-
-    let project = Project {
-        id,
-        name,
-        project_type: ProjectType::PortForward(PortForward::new(reserve_port)),
-    };
-    {
-        let mut projects = PROJECTS.write().await;
-
-        projects.insert(id, Arc::new(project.clone()));
-    }
-    crate::common::save_project_config()
+    let mut project_context = project_context()?;
+    let project = crate::common::add_port_forward_project(&name, 3000, &mut project_context)
         .await
-        .map_err(ServerFnError::new)?;
-    Ok(project)
+        .map_err(|e| ServerFnError::new(e))?;
+
+    Ok(project.as_ref().clone())
 }
 
 #[server(GetProjects)]
 pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
-    use crate::common::PROJECTS;
-
     user()?;
-
-    let projects = PROJECTS.read().await;
+    let context = project_context()?;
+    let projects = context.get_projects().await;
 
     let projects = projects
         .iter()
-        .map(|e| e.1.as_ref().clone())
+        .map(|e| e.as_ref().clone())
         .collect::<Vec<_>>();
     Ok(projects)
 }
@@ -145,8 +152,9 @@ pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
 #[server(GetProject)]
 pub async fn get_project(id: Uuid) -> Result<Project, ServerFnError> {
     user()?;
+    let context = project_context()?;
 
-    if let Ok(project) = get_project_arc(id).await {
+    if let Some(project) = context.get_project(id).await {
         Ok(project.as_ref().clone())
     } else {
         use http::StatusCode;
@@ -158,43 +166,19 @@ pub async fn get_project(id: Uuid) -> Result<Project, ServerFnError> {
     }
 }
 
-#[cfg(feature = "ssr")]
-pub async fn get_project_arc(id: Uuid) -> anyhow::Result<std::sync::Arc<Project>> {
-    use crate::common::PROJECTS;
-
-    let projects = PROJECTS.read().await;
-
-    let project = projects.get(&id);
-    if let Some(project) = project {
-        Ok(project.clone())
-    } else {
-        Err(anyhow::anyhow!("No project with given id"))
-    }
-}
-
 #[server(GetProjectDomains)]
 pub async fn get_project_domains(
     id: Uuid,
 ) -> Result<HashMap<String, DomainStatusFields>, ServerFnError> {
     user()?;
 
-    use crate::common::DOMAIN_MAPPING;
-
-    let domains = {
-        DOMAIN_MAPPING
-            .read()
-            .map_err(|e| ServerFnError::new(anyhow!("{e:?}")))?
-            .clone()
-    };
-
-    let mut project_domains = HashMap::new();
-    for (domain, status) in domains.iter() {
-        if let Some(project) = status.get_project().await {
-            if project.id == id {
-                project_domains.insert(domain.to_lowercase(), status.clone().into());
-            }
-        }
-    }
+    let context = project_context()?;
+    let project_domains = context
+        .get_project_domains(id)
+        .await
+        .into_iter()
+        .map(|(d, status)| (d.to_lowercase(), status.into()))
+        .collect();
     Ok(project_domains)
 }
 
@@ -202,13 +186,15 @@ pub async fn get_project_domains(
 pub async fn add_project_domain(id: Uuid, domain: String) -> Result<(), ServerFnError> {
     user()?;
 
-    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    let mut project_context = project_context()?;
 
-    super::common::add_project_domain(project, domain)
+    let project = project_context
+        .get_project(id)
         .await
-        .map_err(ServerFnError::new)?;
+        .ok_or(ServerFnError::new("Not project with given id"))?;
 
-    crate::common::save_project_config()
+    project_context
+        .add_project_domain(project, domain)
         .await
         .map_err(ServerFnError::new)?;
     Ok(())
@@ -218,22 +204,27 @@ pub async fn add_project_domain(id: Uuid, domain: String) -> Result<(), ServerFn
 pub async fn update_project_port(id: Uuid, port: u16) -> Result<(), ServerFnError> {
     user()?;
 
-    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    let mut project_context = project_context()?;
+
+    let project = project_context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?;
+
+    if let Err(_err) = stop_container(id).await {
+        // Ignore fail
+    }
 
     let new_project = Project {
         project_type: ProjectType::PortForward(PortForward::new(port)),
         ..project.as_ref().clone()
     };
 
-    {
-        let mut projects = crate::common::PROJECTS.write().await;
-
-        projects.insert(project.id, Arc::new(new_project.clone()));
-    }
-
-    crate::common::save_project_config()
+    project_context
+        .update_project(id, Arc::new(new_project))
         .await
         .map_err(ServerFnError::new)?;
+
     Ok(())
 }
 
@@ -246,8 +237,12 @@ pub async fn update_project_image(
 ) -> Result<(), ServerFnError> {
     user()?;
 
-    tracing::info!("Received tokens {:?}", tokens);
-    let project = get_project_arc(id).await.map_err(ServerFnError::new)?;
+    let mut project_context = project_context()?;
+
+    let project = project_context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?;
 
     let new_project = Project {
         project_type: ProjectType::Container(Container {
@@ -269,15 +264,11 @@ pub async fn update_project_image(
         ..project.as_ref().clone()
     };
 
-    {
-        let mut projects = crate::common::PROJECTS.write().await;
-
-        projects.insert(project.id, Arc::new(new_project.clone()));
-    }
-
-    crate::common::save_project_config()
+    project_context
+        .update_project(id, Arc::new(new_project))
         .await
         .map_err(ServerFnError::new)?;
+
     Ok(())
 }
 
@@ -297,4 +288,12 @@ pub fn user() -> Result<crate::auth::User, ServerFnError> {
         }
         AuthType::Authorized(user) => Ok(user),
     }
+}
+
+#[cfg(feature = "ssr")]
+pub fn project_context() -> Result<crate::context::ProjectContext, ServerFnError> {
+    let context = use_context::<crate::context::ProjectContext>()
+        .ok_or(ServerFnError::new("Project Context not present"))?;
+
+    Ok(context)
 }

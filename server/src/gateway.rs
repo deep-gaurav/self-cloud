@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use app::common::{DomainStatus, Project, SSLProvisioning, DOMAIN_MAPPING, PROJECTS};
+use app::{
+    common::{DomainStatus, Project, SSLProvisioning},
+    context::ProjectContext,
+};
 use axum::{body::Bytes, http::header};
 use openssl::ssl::NameType;
 use pingora::{
@@ -16,16 +19,21 @@ use unicase::UniCase;
 
 pub struct Gateway {
     provisioning_gateway: Box<HttpPeer>,
+    project_context: ProjectContext,
 }
 
 impl Gateway {
-    pub fn to_service(server: &Server) -> Service<HttpProxy<Self>> {
+    pub fn to_service(
+        server: &Server,
+        project_context: ProjectContext,
+    ) -> Service<HttpProxy<Self>> {
         let http_port = 8080;
         let https_port = 4433;
 
         let provisioning_gateway = Box::new(HttpPeer::new("127.0.0.1:3000", false, String::new()));
         let service = Self {
             provisioning_gateway,
+            project_context: project_context.clone(),
         };
         let mut service =
             http_proxy_service_with_name(&server.configuration, service, "gateway_proxy");
@@ -33,7 +41,10 @@ impl Gateway {
         service.add_tcp(&format!("0.0.0.0:{http_port}"));
 
         let mut tls_settings =
-            pingora::listeners::TlsSettings::with_callbacks(Box::new(CertSolver {})).unwrap();
+            pingora::listeners::TlsSettings::with_callbacks(Box::new(CertSolver {
+                project_context,
+            }))
+            .unwrap();
         // by default intermediate supports both TLS 1.2 and 1.3. We force to tls 1.2 just for the demo
         tls_settings
             .set_max_proto_version(Some(pingora::tls::ssl::SslVersion::TLS1_2))
@@ -51,7 +62,10 @@ pub struct GatewayContext {
     host: UniCase<String>,
 }
 
-fn get_session_domain(session: &mut Session) -> (UniCase<String>, Option<DomainStatus>) {
+async fn get_session_domain(
+    session: &mut Session,
+    project_context: &ProjectContext,
+) -> (UniCase<String>, Option<DomainStatus>) {
     fn get_host(session: &mut Session) -> String {
         if let Some(host) = session.get_header(header::HOST) {
             if let Ok(host_str) = host.to_str() {
@@ -68,8 +82,8 @@ fn get_session_domain(session: &mut Session) -> (UniCase<String>, Option<DomainS
 
     let host = UniCase::<String>::from(get_host(session));
 
-    let peers = DOMAIN_MAPPING.read().unwrap();
-    (host.clone(), peers.get(&host).cloned())
+    let peers = project_context.get_domain(&host).await;
+    (host.clone(), peers)
 }
 
 #[async_trait::async_trait]
@@ -90,7 +104,7 @@ impl ProxyHttp for Gateway {
         Self::CTX: Send + Sync,
     {
         if _ctx.domain.is_none() {
-            (_ctx.host, _ctx.domain) = get_session_domain(_session);
+            (_ctx.host, _ctx.domain) = get_session_domain(_session, &self.project_context).await;
         }
         if let Some(domain) = &_ctx.domain {
             if domain.ssl_provision.is_provisioned() {
@@ -201,23 +215,6 @@ impl ProxyHttp for Gateway {
                         if let Ok(peer) = peer {
                             return Ok(peer);
                         }
-                    } else {
-                        {
-                            let projects = PROJECTS.read().await;
-                            if let Some(proj) = projects.get(&domain.project_id) {
-                                domain.project = Arc::downgrade(proj);
-                            }
-                        }
-                        {
-                            let mut domains = DOMAIN_MAPPING.write().unwrap();
-                            domains.insert(ctx.host.clone(), domain.clone());
-                        }
-                        if let Some(project) = domain.project.upgrade() {
-                            let peer = get_peer(project, &ctx.host);
-                            if let Ok(peer) = peer {
-                                return Ok(peer);
-                            }
-                        }
                     }
                 }
             }
@@ -230,7 +227,9 @@ impl ProxyHttp for Gateway {
     }
 }
 
-struct CertSolver {}
+struct CertSolver {
+    project_context: ProjectContext,
+}
 
 #[async_trait::async_trait]
 impl pingora::listeners::TlsAccept for CertSolver {
@@ -239,11 +238,10 @@ impl pingora::listeners::TlsAccept for CertSolver {
         let name = ssl.servername(NameType::HOST_NAME);
         if let Some(name) = name {
             let peer = 'b: {
-                let peers = DOMAIN_MAPPING.read().unwrap();
-                let peer = peers.get(&UniCase::from(name));
+                let peer = self.project_context.get_domain(&UniCase::from(name)).await;
                 if let Some(peer) = peer {
-                    if let SSLProvisioning::Provisioned(data) = &peer.ssl_provision {
-                        break 'b Some((data.cert.clone(), data.key.clone()));
+                    if let SSLProvisioning::Provisioned(data) = peer.ssl_provision {
+                        break 'b Some((data.cert, data.key));
                     }
                 }
                 None

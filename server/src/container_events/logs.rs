@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use app::common::{TtyChunk, PROJECTS};
+use app::common::TtyChunk;
 use axum::{
     extract::{
         ws::{Message, WebSocket},
-        Path, WebSocketUpgrade,
+        Path, State, WebSocketUpgrade,
     },
     response::Response,
 };
@@ -15,18 +15,22 @@ use tower_cookies::Cookies;
 use tracing::warn;
 use uuid::Uuid;
 
+use crate::leptos_service::AppState;
+
 use super::ensure_authorized_user;
 
 pub async fn container_logs_ws(
+    State(app_state): State<AppState>,
     cookies: Cookies,
     Path(project_id): Path<Uuid>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, (axum::http::StatusCode, String)> {
     ensure_authorized_user(cookies)?;
     let container = {
-        let projects = PROJECTS.read().await;
-        let project = projects
-            .get(&project_id)
+        let project = app_state
+            .project_context
+            .get_project(project_id)
+            .await
             .ok_or((StatusCode::BAD_REQUEST, "Project doesnt exist".to_string()))?;
         let container = project
             .project_type

@@ -19,6 +19,8 @@ pub mod api;
 pub mod auth;
 pub mod common;
 pub mod components;
+#[cfg(feature = "ssr")]
+pub mod context;
 pub mod error_template;
 pub mod pages;
 pub mod utils;

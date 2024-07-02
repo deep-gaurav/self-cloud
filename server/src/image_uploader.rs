@@ -1,8 +1,8 @@
 use std::{io::Cursor, sync::Arc};
 
-use app::common::{get_docker, ContainerStatus, ProjectType, PROJECTS};
+use app::common::{get_docker, ContainerStatus, ProjectType};
 use axum::{
-    extract::Multipart,
+    extract::{Multipart, State},
     response::{IntoResponse, Response},
 };
 use docker_api::opts::TagOpts;
@@ -11,7 +11,14 @@ use http::StatusCode;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String), PushError> {
+use crate::leptos_service::AppState;
+
+#[axum::debug_handler]
+pub async fn push_image(
+    State(state): State<AppState>,
+    mut multipart: Multipart,
+) -> Result<(StatusCode, String), PushError> {
+    let mut context = state.project_context;
     let mut token = None;
     let mut project_id = None;
     while let Some(field) = multipart.next_field().await? {
@@ -35,9 +42,9 @@ pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String)
                 };
 
                 {
-                    let projects = PROJECTS.read().await;
-                    let project = projects
-                        .get(&project_id)
+                    let project = context
+                        .get_project(project_id)
+                        .await
                         .ok_or(anyhow::anyhow!("project with given id not present"))?;
 
                     if let ProjectType::Container(container) = &project.project_type {
@@ -114,15 +121,16 @@ pub async fn push_image(mut multipart: Multipart) -> Result<(StatusCode, String)
 
                 info!("Loaded docker image {image:?}");
                 {
-                    let mut projects = PROJECTS.write().await;
-                    let project = projects.get(&project_id);
+                    let project = context.get_project(project_id).await;
                     if let Some(project) = project {
                         let mut proj = project.as_ref().clone();
                         if let ProjectType::Container(container) = &mut proj.project_type {
                             container.status = ContainerStatus::None;
                         }
 
-                        projects.insert(project_id, Arc::new(proj));
+                        if let Err(err) = context.update_project(project_id, Arc::new(proj)).await {
+                            warn!("Failed to update project status {err:?}");
+                        }
                     }
                 }
                 return Ok((StatusCode::OK, format!("Accepted")));

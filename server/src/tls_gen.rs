@@ -3,7 +3,10 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use app::common::{get_home_path, SSLProvisioning, DOMAIN_MAPPING};
+use app::{
+    common::{get_home_path, SSLProvisioning},
+    context::ProjectContext,
+};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -27,11 +30,12 @@ pub type TLSState = Arc<RwLock<HashMap<String, KeyAuthorization>>>;
 
 pub struct TLSGenService {
     state: TLSState,
+    context: ProjectContext,
 }
 
 impl TLSGenService {
-    pub fn to_service(state: TLSState) -> GenBackgroundService<Self> {
-        background_service("tls generator", Self { state })
+    pub fn to_service(state: TLSState, context: ProjectContext) -> GenBackgroundService<Self> {
+        background_service("tls generator", Self { state, context })
     }
 }
 
@@ -109,11 +113,14 @@ impl BackgroundService for TLSGenService {
                 }
                 _ = period.tick() => {
                     tracing::debug!("SSL Tick");
+                    let mut project_context = self.context.clone();
+
                     let domain = 'ba: {
-                        let mut peers = DOMAIN_MAPPING.write().unwrap();
+                        let mut peers = self.context.get_all_domains().await;
                         for (domain, peer) in peers.iter_mut() {
                             if peer.ssl_provision.is_not_provisioned() {
                                 peer.ssl_provision = SSLProvisioning::Provisioning;
+                                project_context.update_domain(domain.clone(), peer.clone()).await;
                                 break 'ba Some(domain.clone());
                             }
                         }
@@ -124,7 +131,7 @@ impl BackgroundService for TLSGenService {
 
                     if let Some(domain) = domain {
                         tokio::spawn(async move {
-                            generate_certificate(domain, account, acme).await;
+                            generate_certificate(domain, account, acme, project_context).await;
                         });
                     }
                 }
@@ -145,7 +152,12 @@ pub async fn acme_handler(
     }
 }
 
-async fn generate_certificate(domain: UniCase<String>, account: Account, acme: TLSState) {
+async fn generate_certificate(
+    domain: UniCase<String>,
+    account: Account,
+    acme: TLSState,
+    mut project_context: ProjectContext,
+) {
     let identifier = Identifier::Dns(domain.to_lowercase());
     let mut order = account
         .new_order(&NewOrder {
@@ -275,19 +287,17 @@ async fn generate_certificate(domain: UniCase<String>, account: Account, acme: T
     .await
     .expect("cant write key");
 
-    {
-        let mut peers = DOMAIN_MAPPING.write().unwrap();
-        if let Some(peer) = peers.get_mut(&domain) {
-            let cert = pingora::tls::x509::X509::stack_from_pem(cert_chain_pem.as_bytes());
-            let key = pingora::tls::pkey::PKey::private_key_from_pem(kp.serialize_pem().as_bytes());
+    if let Some(mut peer) = project_context.get_domain(&domain).await {
+        let cert = pingora::tls::x509::X509::stack_from_pem(cert_chain_pem.as_bytes());
+        let key = pingora::tls::pkey::PKey::private_key_from_pem(kp.serialize_pem().as_bytes());
 
-            if let (Ok(cert), Ok(key)) = (cert, key) {
-                peer.ssl_provision = SSLProvisioning::Provisioned(app::common::SSlData {
-                    cert,
-                    key,
-                    is_active: true,
-                });
-            }
+        if let (Ok(cert), Ok(key)) = (cert, key) {
+            peer.ssl_provision = SSLProvisioning::Provisioned(app::common::SSlData {
+                cert,
+                key,
+                is_active: true,
+            });
         }
+        project_context.update_domain(domain, peer).await
     };
 }

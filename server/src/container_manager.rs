@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use app::common::{get_docker, ContainerStatus, Project, ProjectType, PROJECTS};
+use app::{
+    common::{get_docker, ContainerStatus, Project, ProjectType},
+    context::ProjectContext,
+};
 use docker_api::opts::{ContainerCreateOpts, ContainerRemoveOpts, ContainerStopOpts, PublishPort};
 use leptos::logging::warn;
 use pingora::{
@@ -10,11 +13,13 @@ use pingora::{
 };
 use tracing::info;
 
-pub struct ContainerManager {}
+pub struct ContainerManager {
+    project_context: ProjectContext,
+}
 
 impl ContainerManager {
-    pub fn to_service() -> GenBackgroundService<Self> {
-        background_service("container_manager", Self {})
+    pub fn to_service(project_context: ProjectContext) -> GenBackgroundService<Self> {
+        background_service("container_manager", Self { project_context })
     }
 }
 
@@ -31,8 +36,8 @@ impl BackgroundService for ContainerManager {
                 }
                 _ = period.tick() => {
                     tracing::debug!("Container tick");
-                    let mut peers = PROJECTS.write().await;
-                    for (_id, project) in peers.iter_mut() {
+                    let mut peers = self.project_context.get_projects().await;
+                    for project in peers.iter_mut() {
                         if let ProjectType::Container(container) = &project.project_type {
                             if container.status.is_none(){
                                 let mut project_t = project.clone().as_ref().clone();
@@ -41,22 +46,22 @@ impl BackgroundService for ContainerManager {
                                 }
                                 *project = Arc::new(project_t);
                                 let project = project.clone();
+                                let mut context = self.project_context.clone();
                                 tokio::spawn(async move {
                                     tracing::info!("Container process, it's none {}", project.name);
 
-                                    let id = project.id;
-                                    if let Err(err) = run_and_set_container(project).await {
+                                    if let Err(err) = run_and_set_container(project.clone(), context.clone()).await {
                                         warn!("Failed to run container {err:?}");
 
                                         {
-                                            let mut projects = PROJECTS.write().await;
-                                            if let Some(project) = projects.get_mut(&id){
-                                                let mut new_p = project.as_ref().clone();
-                                                if let ProjectType::Container(container) = &mut new_p.project_type {
-                                                    container.status = ContainerStatus::Failed;
-                                                }
-                                                *project = Arc::new(new_p)
+                                            let mut new_p = project.as_ref().clone();
+                                            if let ProjectType::Container(container) = &mut new_p.project_type {
+                                                container.status = ContainerStatus::Failed;
                                             }
+                                            if let Err(err) =  context.update_project(new_p.id, Arc::new(new_p)).await {
+                                                warn!("Failed to update project status {err:?}");
+                                            }
+
                                         }
                                     }
                                 });
@@ -69,7 +74,10 @@ impl BackgroundService for ContainerManager {
     }
 }
 
-async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
+async fn run_and_set_container(
+    project: Arc<Project>,
+    mut project_context: ProjectContext,
+) -> anyhow::Result<()> {
     if let ProjectType::Container(container) = &project.project_type {
         if let ContainerStatus::Running(container) = &container.status {
             container
@@ -174,7 +182,6 @@ async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
                 let inspect = container.inspect().await?;
 
                 {
-                    let mut projects = PROJECTS.write().await;
                     let mut project = project.as_ref().clone();
                     if let ProjectType::Container(cont) = &mut project.project_type {
                         if let Some(network) = inspect.network_settings {
@@ -200,7 +207,12 @@ async fn run_and_set_container(project: Arc<Project>) -> anyhow::Result<()> {
                         }
                         cont.status = ContainerStatus::Running(Arc::new(container));
                     }
-                    projects.insert(project.id, Arc::new(project));
+                    if let Err(err) = project_context
+                        .update_project(project.id, Arc::new(project))
+                        .await
+                    {
+                        warn!("Failed to update project status {err:?}");
+                    }
                 }
             } else {
                 warn!("Container not running")

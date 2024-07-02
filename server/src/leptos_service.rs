@@ -1,8 +1,7 @@
 use app::{
     auth::{server::get_user_from_cookie, AuthType, AuthorizedUsers},
-    common::{
-        add_port_forward_project, add_project_domain, load_projects_config, save_project_config,
-    },
+    common::add_port_forward_project,
+    context::ProjectContext,
     App,
 };
 use axum::{body::Body as AxumBody, extract::DefaultBodyLimit, Router};
@@ -37,11 +36,12 @@ use crate::{
 
 pub struct LeptosService {
     tls_state: TLSState,
+    context: ProjectContext,
 }
 
 impl LeptosService {
-    pub fn to_service(tls_state: TLSState) -> GenBackgroundService<Self> {
-        background_service("leptos_service", Self { tls_state })
+    pub fn to_service(tls_state: TLSState, context: ProjectContext) -> GenBackgroundService<Self> {
+        background_service("leptos_service", Self { tls_state, context })
     }
 }
 
@@ -52,7 +52,7 @@ impl BackgroundService for LeptosService {
             _ = shutdown.changed() => {
                 info!("Shutdown received");
             }
-            _ = run_main(self.tls_state.clone()) => {
+            _ = run_main(self.tls_state.clone(), self.context.clone()) => {
                 info!("Leptos ended");
             }
         };
@@ -65,9 +65,10 @@ pub struct AppState {
     routes: Vec<RouteListing>,
     pub tls_state: TLSState,
     pub authorized_users: AuthorizedUsers,
+    pub project_context: ProjectContext,
 }
 
-async fn run_main(tls_state: TLSState) {
+async fn run_main(tls_state: TLSState, mut context: ProjectContext) {
     // Setting get_configuration(None) means we'll be using cargo-leptos's env values
     // For deployment these variables are:
     // <https://github.com/leptos-rs/start-axum#executing-a-server-on-a-remote-machine-without-the-toolchain>
@@ -99,6 +100,7 @@ async fn run_main(tls_state: TLSState) {
         leptos_options,
         tls_state,
         authorized_users: users,
+        project_context: context.clone(),
     };
 
     let compression = tower_http::compression::CompressionLayer::new()
@@ -139,11 +141,11 @@ async fn run_main(tls_state: TLSState) {
     };
 
     tracing::info!("Load project config");
-    if let Err(err) = load_projects_config().await {
+    if let Err(err) = context.load_from_config().await {
         tracing::error!("Failed to load config {err:?}");
 
         tracing::info!("Adding project");
-        let project = match add_port_forward_project("cloud-panel", 3000).await {
+        let project = match add_port_forward_project("cloud-panel", 3000, &mut context).await {
             Ok(project) => project,
             Err(err) => {
                 tracing::error!("Cant create cloud-panel project {err:#?}");
@@ -151,13 +153,11 @@ async fn run_main(tls_state: TLSState) {
             }
         };
 
-        if let Err(err) = add_project_domain(project, "cloud.deepwith.in".to_string()).await {
+        if let Err(err) = context
+            .add_project_domain(project, "cloud.deepwith.in".to_string())
+            .await
+        {
             tracing::error!("Cant add panel domain {err:#?}");
-            return;
-        }
-
-        if let Err(err) = save_project_config().await {
-            tracing::error!("Cant save config {err:#?}");
             return;
         }
     }

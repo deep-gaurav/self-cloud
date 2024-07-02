@@ -7,24 +7,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 use unicase::UniCase;
 use uuid::Uuid;
 
-#[cfg(feature = "ssr")]
-pub static PROJECTS: once_cell::sync::Lazy<
-    tokio::sync::RwLock<std::collections::HashMap<Uuid, std::sync::Arc<Project>>>,
-> = once_cell::sync::Lazy::new(|| {
-    tracing::debug!("Creating new projects list");
-    let peers = std::collections::HashMap::new();
-    tokio::sync::RwLock::new(peers)
-});
-
-#[cfg(feature = "ssr")]
-pub static DOMAIN_MAPPING: once_cell::sync::Lazy<
-    std::sync::RwLock<std::collections::HashMap<unicase::UniCase<String>, DomainStatus>>,
-> = once_cell::sync::Lazy::new(|| {
-    tracing::debug!("Creating new domain mapping");
-    let peers = std::collections::HashMap::new();
-    std::sync::RwLock::new(peers)
-});
-
 #[derive(Serialize, Clone, PartialEq)]
 pub struct Project {
     pub id: Uuid,
@@ -311,84 +293,6 @@ pub struct ProjectConfig {
     pub domains: Vec<DomainSerialize>,
 }
 
-#[cfg(feature = "ssr")]
-pub async fn load_projects_config() -> anyhow::Result<()> {
-    let path = get_home_path().join("projects.json");
-    tracing::info!("Loading path {path:?}");
-    let data = tokio::fs::read(path).await?;
-    tracing::debug!("Loaded data");
-    let project_config = serde_json::from_slice::<ProjectConfig>(&data)?;
-    tracing::debug!("Parsed config");
-
-    tracing::debug!("Updating projects");
-    {
-        let mut projects = PROJECTS.write().await;
-        for project in project_config.projects.into_iter() {
-            let project = Arc::new(Project::new_from_fields(project));
-            projects.insert(project.id, project.clone());
-        }
-    }
-
-    tracing::debug!("Updating domains");
-    for domain in project_config.domains.into_iter() {
-        tracing::trace!("Get project for {}", domain.domain);
-        let project = {
-            let projects = PROJECTS.read().await;
-            let project = projects.get(&domain.project_id).cloned();
-            project
-        };
-        tracing::trace!(
-            "Add domain to {:?} ",
-            project.as_ref().map(|p| p.name.clone())
-        );
-        if let Some(project) = project {
-            add_project_domain(project.clone(), domain.domain).await?;
-        }
-        tracing::trace!("Added domain");
-    }
-
-    tracing::debug!("Load success");
-    Ok(())
-}
-
-#[cfg(feature = "ssr")]
-pub async fn save_project_config() -> anyhow::Result<()> {
-    let projects = {
-        let projects = PROJECTS.read().await;
-        let projects = projects
-            .values()
-            .map(|p| p.as_ref().clone().into())
-            .collect::<Vec<_>>();
-        projects
-    };
-
-    let domains = {
-        let domains = {
-            DOMAIN_MAPPING
-                .read()
-                .map_err(|e| anyhow::anyhow!("Failed to aquire lock {e:?}"))?
-                .clone()
-        };
-        let mut dom = vec![];
-        for (domain, status) in domains.iter() {
-            if let Some(project) = status.get_project().await {
-                dom.push(DomainSerialize {
-                    domain: domain.to_string(),
-                    project_id: project.id,
-                })
-            }
-        }
-        dom
-    };
-
-    let config = ProjectConfig { domains, projects };
-    let data = serde_json::to_vec(&config)
-        .map_err(|e| anyhow::anyhow!("Cannot serialize config {e:?}"))?;
-    tokio::fs::write(get_home_path().join("projects.json"), data).await?;
-
-    Ok(())
-}
-
 impl<'de> Deserialize<'de> for Project {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
@@ -447,38 +351,12 @@ impl SSLProvisioning {
 pub struct DomainStatus {
     #[cfg(feature = "ssr")]
     pub project: Weak<Project>,
-    pub project_id: Uuid,
     pub ssl_provision: SSLProvisioning,
 }
 #[cfg(feature = "ssr")]
 impl DomainStatus {
     pub async fn get_project(&self) -> Option<Arc<Project>> {
-        if let Some(project) = self.project.upgrade() {
-            return Some(project);
-        } else {
-            {
-                let projects = PROJECTS.read().await;
-                if let Some(proj) = projects.get(&self.project_id) {
-                    return Some(proj.clone());
-                }
-            }
-        }
-        None
-    }
-
-    pub async fn get_project_and_update(&mut self) -> Option<Arc<Project>> {
-        if let Some(project) = self.project.upgrade() {
-            return Some(project);
-        } else {
-            {
-                let projects = PROJECTS.read().await;
-                if let Some(proj) = projects.get(&self.project_id) {
-                    self.project = Arc::downgrade(proj);
-                    return Some(proj.clone());
-                }
-            }
-        }
-        None
+        self.project.upgrade()
     }
 }
 
@@ -552,77 +430,19 @@ impl<'de> Deserialize<'de> for SSlData {
 }
 
 #[cfg(feature = "ssr")]
-pub async fn add_port_forward_project(name: &str, port: u16) -> anyhow::Result<Arc<Project>> {
+pub async fn add_port_forward_project(
+    name: &str,
+    port: u16,
+    context: &mut crate::context::ProjectContext,
+) -> anyhow::Result<Arc<Project>> {
     let id = uuid::Uuid::new_v4();
     let project = Arc::new(Project {
         id,
         name: name.to_string(),
         project_type: ProjectType::PortForward(PortForward::new(port)),
     });
-    let mut projects = PROJECTS.write().await;
-    projects.insert(id, project.clone());
-
+    context.update_project(id, project.clone()).await?;
     Ok(project)
-}
-
-#[cfg(feature = "ssr")]
-pub async fn add_project_domain(project: Arc<Project>, domain: String) -> anyhow::Result<()> {
-    use unicase::UniCase;
-
-    let domain = domain.to_ascii_lowercase();
-    if let (Ok(cert), Ok(key)) = (
-        tokio::fs::read(
-            get_home_path()
-                .join("certificates")
-                .join(&domain)
-                .join("cert.pem"),
-        )
-        .await,
-        tokio::fs::read(
-            get_home_path()
-                .join("certificates")
-                .join(&domain)
-                .join("key.pem"),
-        )
-        .await,
-    ) {
-        let cert = pingora::tls::x509::X509::stack_from_pem(&cert)?;
-        if cert.len() < 1 {
-            anyhow::bail!("Should have atleast 1 certificate")
-        }
-        let key = pingora::tls::pkey::PKey::private_key_from_pem(&key)?;
-        let mut peers = DOMAIN_MAPPING
-            .write()
-            .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-
-        peers.insert(
-            UniCase::from(domain),
-            DomainStatus {
-                project_id: project.id,
-                project: Arc::downgrade(&project),
-                ssl_provision: SSLProvisioning::Provisioned(SSlData {
-                    cert,
-                    key,
-                    is_active: true,
-                }),
-            },
-        );
-    } else {
-        let mut peers = DOMAIN_MAPPING
-            .write()
-            .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-
-        peers.insert(
-            UniCase::from(domain),
-            DomainStatus {
-                project_id: project.id,
-                project: Arc::downgrade(&project),
-                ssl_provision: SSLProvisioning::NotProvisioned,
-            },
-        );
-    }
-
-    Ok(())
 }
 
 #[cfg(feature = "ssr")]

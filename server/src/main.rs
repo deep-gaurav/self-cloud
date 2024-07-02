@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::RwLock};
 
+use app::context::ProjectContext;
 use container_manager::ContainerManager;
 use gateway::Gateway;
 use leptos_service::LeptosService;
@@ -47,12 +48,15 @@ fn main() {
     let opt = Some(Opt::from_args());
     let mut my_server = Server::new(opt).unwrap();
 
+    let context = ProjectContext::new_empty();
+
     let tls_state = TLSState::new(RwLock::new(HashMap::new()));
 
-    let leptos_service = LeptosService::to_service(tls_state.clone());
-    let tls_gen_service = TLSGenService::to_service(tls_state);
-    let proxy_service = Gateway::to_service(&my_server);
-    let container_service = ContainerManager::to_service();
+    let leptos_service = LeptosService::to_service(tls_state.clone(), context.clone());
+    let tls_gen_service = TLSGenService::to_service(tls_state, context.clone());
+    let proxy_service = Gateway::to_service(&my_server, context.clone());
+    let container_service = ContainerManager::to_service(context);
+
     my_server.add_service(leptos_service);
     my_server.add_service(proxy_service);
     my_server.add_service(tls_gen_service);
