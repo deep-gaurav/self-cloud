@@ -192,6 +192,7 @@ async fn leptos_routes_handler(
         app_state.routes.clone(),
         move || {
             provide_context(auth.clone());
+            provide_context(app_state.project_context.clone());
             // provide_context(app_state.otp_map.clone());
         },
         App,
@@ -223,6 +224,7 @@ async fn server_fn_handler(
             provide_context(auth.clone());
             provide_context(app_state.authorized_users.clone());
             provide_context(cookies.clone());
+            provide_context(app_state.project_context.clone());
             // provide_context(app_state.otp_map.clone());
         },
         request,
