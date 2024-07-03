@@ -151,7 +151,7 @@ impl ContainerStatus {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct ExposedPort {
     pub port: u16,
     #[cfg(feature = "ssr")]
@@ -160,7 +160,13 @@ pub struct ExposedPort {
     pub domains: Vec<Domain>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Clone, Debug, Deserialize)]
+pub struct ExposedPortArg {
+    pub port: String,
+    pub domain: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct Domain {
     #[serde(with = "unicase_serde::unicase")]
     pub name: UniCase<String>,

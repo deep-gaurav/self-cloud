@@ -1,7 +1,7 @@
 use crate::{
     auth::{get_auth, AuthType},
     error_template::{AppError, ErrorTemplate},
-    pages::project::project_page::{DomainsList, ProjectSettings},
+    pages::project::project_page::{DomainsList, GeneralSettings},
 };
 
 use crate::auth::Login;
@@ -64,7 +64,7 @@ pub fn App() -> impl IntoView {
                         <Route path="projects" view=ProjectsHome>
                             <Route path="" view=ProjectsList/>
                             <Route path=":id" view=ProjectPage>
-                                <Route path="" view=ProjectSettings/>
+                                <Route path="" view=GeneralSettings/>
                                 <Route path="domains" view=DomainsList/>
                                 <Route path="container" view=ContainerPage/>
                             </Route>

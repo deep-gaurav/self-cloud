@@ -231,9 +231,8 @@ pub async fn update_project_port(id: Uuid, port: u16) -> Result<(), ServerFnErro
 #[server(UpdateProjectImage)]
 pub async fn update_project_image(
     id: Uuid,
-    container_port: u16,
-    domain: String,
-    tokens: Option<HashMap<String, Token>>,
+    exposed_ports: Option<HashMap<String, ExposedPort>>,
+    // tokens: Option<HashMap<String, Token>>,
 ) -> Result<(), ServerFnError> {
     user()?;
 
@@ -244,20 +243,23 @@ pub async fn update_project_image(
         .await
         .ok_or(ServerFnError::new("Not project with given id"))?;
 
+    let tokens = project
+        .project_type
+        .as_container()
+        .map(|c| c.tokens.clone());
+
     let new_project = Project {
         project_type: ProjectType::Container(Container {
-            exposed_ports: vec![ExposedPort {
-                port: container_port,
-                domains: if domain.is_empty() {
-                    vec![]
-                } else {
-                    vec![crate::common::Domain {
-                        name: unicase::UniCase::from(domain),
-                    }]
-                },
-                #[cfg(feature = "ssr")]
-                peer: None,
-            }],
+            exposed_ports: exposed_ports
+                .map(|e| {
+                    e.into_values()
+                        .map(|mut p| {
+                            p.domains.retain_mut(|d| !d.name.is_empty());
+                            p
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
             tokens: tokens.unwrap_or_default(),
             status: crate::common::ContainerStatus::None,
         }),

@@ -34,10 +34,10 @@ use crate::api::AddProjectDomain;
 use crate::api::UpdateProjectImage;
 use crate::api::UpdateProjectPort;
 use crate::common::Container;
+use crate::common::ExposedPort;
 use crate::common::PortForward;
 use crate::common::Project;
 use crate::common::ProjectType;
-use crate::common::Token;
 use crate::utils::random_ascii_string;
 use leptos_router::Redirect;
 
@@ -152,7 +152,7 @@ pub fn ProjectPage() -> impl IntoView {
 }
 
 #[component]
-pub fn ProjectSettings() -> impl IntoView {
+pub fn GeneralSettings() -> impl IntoView {
     let id = expect_context::<Uuid>();
 
     let project = expect_context::<Resource<(), Result<Project, ServerFnError>>>();
@@ -316,12 +316,8 @@ pub fn ProjectSettings() -> impl IntoView {
                                     .into_view()
                             }
                             ProjectType::Container(container) => {
-                                let (tokens, set_tokens) = create_signal(container.tokens);
-                                let selected_domain = container
-                                    .exposed_ports
-                                    .first()
-                                    .and_then(|p| p.domains.first())
-                                    .map(|d| d.name.as_ref().to_string());
+                                let (exposed_ports, set_exposed_ports)= create_signal(container.exposed_ports.into_iter().map(|p|(random_ascii_string(8),p)).collect::<HashMap<String, ExposedPort>>());
+
                                 view! {
                                     <ActionForm action=update_image_action>
                                         <input
@@ -332,127 +328,81 @@ pub fn ProjectSettings() -> impl IntoView {
                                             }
                                         />
 
-                                        <div class="text-md">"Image"</div>
-
                                         <div class="h-4"></div>
 
                                         <div class="text-md">"Exposed Port"</div>
-                                        <div class="flex gap-2">
-                                            <input
-                                                name="container_port"
-                                                value=container
-                                                    .exposed_ports
-                                                    .first()
-                                                    .map(|e| e.port)
-                                                    .unwrap_or_default()
-                                                type="number"
-                                                class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
-                                            />
-                                        </div>
 
-                                        <div class="h-2"></div>
-                                        <div class="text-md">"Assigned Domain"</div>
-
-                                        <select
-                                            name="domain"
-                                            class="p-2 bg-white border rounded-md dark:bg-white/10 dark:border-white/5"
-                                        >
-
-                                            <option value="">"None"</option>
-
-                                            {move || {
-                                                domains
-                                                    .get()
-                                                    .unwrap_or_default()
-                                                    .iter()
-                                                    .map(|domain| {
-                                                        view! {
-                                                            <option
-                                                                value=domain.0
-                                                                selected=Some(domain.0) == selected_domain.as_ref()
-                                                            >
-                                                                {domain.0}
-                                                            </option>
-                                                        }
-                                                    })
-                                                    .collect::<Vec<_>>()
-                                            }}
-
-                                        </select>
-
-                                        <div class="h-4"></div>
-
-                                        <div class="text-md">"Tokens"</div>
                                         <div class="">
                                             <For
-                                                each=move || tokens.get().into_iter()
+                                                each=move || exposed_ports.get().into_iter()
                                                 key=|p| p.0.clone()
-                                                children=move |(index, token)| {
-                                                    let token_id = index.clone();
+                                                children=move |(index, exposed_port)| {
+                                                    let i2 = index.clone();
+                                                    let i3 = index.clone();
+                                                    let i4 = index.clone();
                                                     view! {
                                                         <div class="flex flex-col gap-4 p-2 border dark:border-white/20 m-2 rounded">
-                                                            <div class=" flex flex-col">
-                                                                <label for="token" class="text-sm dark:text-white/50">
-                                                                    Token
-                                                                </label>
-                                                                <input
-                                                                    prop:value=&token.token
-                                                                    type="hidden"
-                                                                    name=format!("tokens[{index}][token]")
-                                                                    required
-                                                                    class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
-                                                                />
-                                                                <input
-                                                                    prop:value=&token.token
-                                                                    disabled
-                                                                    type="text"
-                                                                    id="token"
-                                                                    required
-                                                                    class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
-                                                                />
-                                                            </div>
                                                             <div class="flex gap-4 flex-wrap">
 
                                                                 <div class=" flex flex-col">
-                                                                    <label for="description" class="text-sm dark:text-white/50">
-                                                                        Description
+                                                                    <label for="port" class="text-sm dark:text-white/50">
+                                                                        "Port"
                                                                     </label>
                                                                     <input
-                                                                        prop:value=&token.description
-                                                                        type="text"
-                                                                        id="description"
-                                                                        name=format!("tokens[{index}][description]")
+                                                                        prop:value=exposed_port.port
+                                                                        type="number"
+                                                                        id="port"
+                                                                        name= format!("exposed_ports[{i2}][port]")
                                                                         required
                                                                         class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                     />
                                                                 </div>
 
                                                                 <div class=" flex flex-col">
-                                                                    <label for="expiry" class="text-sm dark:text-white/50">
-                                                                        Expiry
+
+
+                                                                    <label for="domain" class="text-sm dark:text-white/50">
+                                                                        "Domain"
                                                                     </label>
-                                                                    <input
-                                                                        type="date"
-                                                                        prop:value=token
-                                                                            .expiry
-                                                                            .map(|e| e.to_string())
-                                                                            .unwrap_or_default()
-                                                                        id="expiry"
-                                                                        name=format!("tokens[{index}][expiry]")
-                                                                        class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
-                                                                    />
+
+                                                                    <select
+                                                                        name=format!("exposed_ports[{i3}][domains][1][name]")
+                                                                        class="p-2 bg-white border rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                    >
+
+                                                                        <option value="">"None"</option>
+
+                                                                        {move || {
+                                                                            domains
+                                                                                .get()
+                                                                                .unwrap_or_default()
+                                                                                .iter()
+                                                                                .map(|domain| {
+                                                                                    view! {
+                                                                                        <option
+                                                                                            value=domain.0
+                                                                                            selected=exposed_port.domains.iter().any(|d|d.name.to_lowercase() == domain.0.to_lowercase())
+                                                                                        >
+                                                                                            {domain.0}
+                                                                                        </option>
+                                                                                    }
+                                                                                })
+                                                                                .collect::<Vec<_>>()
+                                                                        }}
+
+                                                                    </select>
                                                                 </div>
 
                                                                 <button
                                                                     class="p-2 rounded bg-red-700 px-6 text-white mt-5"
                                                                     on:click=move |_| {
-                                                                        let mut tokens = tokens.get_untracked();
-                                                                        tokens.remove(&token_id);
-                                                                        set_tokens.set(tokens)
+                                                                        let mut exposed_ports = exposed_ports.get_untracked();
+                                                                        exposed_ports.remove(&i4);
+                                                                        set_exposed_ports.set(exposed_ports)
                                                                     }
                                                                 >
 
-                                                                    "Delete Token"
+                                                                    "Remove Port"
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -461,23 +411,24 @@ pub fn ProjectSettings() -> impl IntoView {
                                             />
 
                                             <button
+                                                type="button"
                                                 class="p-2 rounded border bg-white/90 px-6 text-black"
                                                 on:click=move |_| {
-                                                    let new_token = Token {
-                                                        expiry: None,
-                                                        description: String::new(),
-                                                        token: random_ascii_string(20),
+                                                    let new_port = ExposedPort{
+                                                        port: 0,
+                                                        domains: vec![],
+                                                        #[cfg(feature = "ssr")]
+                                                        peer: unimplemented!("Cant create new exposed port in ssr"),
                                                     };
-                                                    let mut tokens = tokens.get_untracked();
-                                                    tokens.insert(new_token.token.clone(), new_token);
-                                                    set_tokens.set(tokens);
+                                                    let mut ports = exposed_ports.get_untracked();
+                                                    ports.insert(random_ascii_string(8), new_port);
+                                                    set_exposed_ports.set(ports);
                                                 }
                                             >
 
-                                                "Generate new Token"
+                                                "Add New Exposed Port"
                                             </button>
                                         </div>
-
                                         <div class="h-4"></div>
 
                                         <input
