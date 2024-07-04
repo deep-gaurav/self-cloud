@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::HashMap,
     sync::{Arc, Weak},
 };
@@ -11,7 +10,7 @@ use uuid::Uuid;
 #[derive(Serialize, Clone, PartialEq)]
 pub struct Project {
     pub id: Uuid,
-    pub name: Cow<'static, str>,
+    pub name: String,
 
     pub project_type: ProjectType,
 }
@@ -102,7 +101,7 @@ impl ProjectType {
 
 #[derive(Serialize, Clone)]
 pub struct Container {
-    pub exposed_ports: Vec<ExposedPort>,
+    pub exposed_ports: smallvec::SmallVec<[ExposedPort; 4]>,
     pub tokens: HashMap<String, Token>,
     #[cfg(feature = "ssr")]
     #[serde(skip)]
@@ -158,7 +157,7 @@ pub struct ExposedPort {
     #[cfg(feature = "ssr")]
     #[serde(skip)]
     pub peer: Option<Arc<pingora::upstreams::peer::HttpPeer>>,
-    pub domains: Vec<Domain>,
+    pub domains: smallvec::SmallVec<[Domain; 2]>,
 }
 
 #[derive(Serialize, Clone, Debug, Deserialize)]
@@ -187,7 +186,7 @@ impl<'de> Deserialize<'de> for ExposedPort {
         #[derive(Clone, Deserialize)]
         pub struct TmpExposedPort {
             pub port: u16,
-            pub domains: Vec<Domain>,
+            pub domains: smallvec::SmallVec<[Domain; 2]>,
         }
 
         let d = TmpExposedPort::deserialize(deserializer)?;
@@ -224,7 +223,7 @@ impl<'de> Deserialize<'de> for Container {
     {
         #[derive(Clone, Deserialize)]
         pub struct TmpContainer {
-            pub exposed_ports: Vec<ExposedPort>,
+            pub exposed_ports: smallvec::SmallVec<[ExposedPort; 4]>,
             pub tokens: HashMap<String, Token>,
         }
 
@@ -263,7 +262,7 @@ impl Project {
 #[derive(Serialize, Deserialize)]
 pub struct ProjectFields {
     pub id: Uuid,
-    pub name: Cow<'static, str>,
+    pub name: String,
     pub project_type: ProjectType,
 }
 
@@ -445,7 +444,7 @@ pub async fn add_port_forward_project(
     let id = uuid::Uuid::new_v4();
     let project = Arc::new(Project {
         id,
-        name: Cow::Owned(name.to_string()),
+        name: name.to_string(),
         project_type: ProjectType::PortForward(PortForward::new(port)),
     });
     context.update_project(id, project.clone()).await?;

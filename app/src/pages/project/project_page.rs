@@ -209,7 +209,7 @@ pub fn GeneralSettings() -> impl IntoView {
                         None
                     } else {
                         Some(ProjectType::Container(Container {
-                            exposed_ports: vec![],
+                            exposed_ports: vec![].into(),
                             #[cfg(feature = "ssr")]
                             status: crate::common::ContainerStatus::None,
                             tokens: HashMap::new(),
@@ -420,7 +420,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                                 on:click=move |_| {
                                                     let new_port = ExposedPort{
                                                         port: 0,
-                                                        domains: vec![],
+                                                        domains: vec![].into(),
                                                         #[cfg(feature = "ssr")]
                                                         peer: unimplemented!("Cant create new exposed port in ssr"),
                                                     };

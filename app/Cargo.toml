@@ -65,6 +65,8 @@ serde-wasm-bindgen.workspace = true
 serde_qs.workspace = true
 serde_path_to_error.workspace = true
 
+smallvec.workspace = true
+
 [features]
 default = []
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]

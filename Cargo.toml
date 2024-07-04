@@ -125,6 +125,8 @@ serde-wasm-bindgen = "0.6.5"
 serde_qs = "0.13.0"
 
 serde_path_to_error = "0.1"
+
+smallvec = { version = "1.13.2", features = ["serde"] }
 # See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
 
 # A leptos project defines which workspace members
