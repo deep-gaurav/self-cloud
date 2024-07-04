@@ -222,7 +222,7 @@ async fn server_fn_handler(
     handle_server_fns_with_context(
         move || {
             provide_context(auth.clone());
-            provide_context(app_state.authorized_users.clone());
+            // provide_context(app_state.authorized_users.clone());
             provide_context(cookies.clone());
             provide_context(app_state.project_context.clone());
             // provide_context(app_state.otp_map.clone());

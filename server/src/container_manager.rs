@@ -196,7 +196,7 @@ async fn run_and_set_container(
                                         .and_then(|p| p.host_port)
                                         .and_then(|p| p.parse::<u16>().ok())
                                     {
-                                        port.peer = Some(Box::new(HttpPeer::new(
+                                        port.peer = Some(Arc::new(HttpPeer::new(
                                             format!("127.0.0.1:{host_port}"),
                                             false,
                                             String::new(),

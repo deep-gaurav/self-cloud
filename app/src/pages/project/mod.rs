@@ -15,6 +15,7 @@ use crate::api::get_projects;
 
 pub mod container_page;
 pub mod project_page;
+pub mod settings;
 
 #[component]
 pub fn ProjectsList() -> impl IntoView {

@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     sync::{Arc, Weak},
 };
@@ -10,7 +11,7 @@ use uuid::Uuid;
 #[derive(Serialize, Clone, PartialEq)]
 pub struct Project {
     pub id: Uuid,
-    pub name: String,
+    pub name: Cow<'static, str>,
 
     pub project_type: ProjectType,
 }
@@ -27,7 +28,7 @@ pub struct PortForward {
 
     #[cfg(feature = "ssr")]
     #[serde(skip)]
-    pub peer: Box<pingora::upstreams::peer::HttpPeer>,
+    pub peer: Arc<pingora::upstreams::peer::HttpPeer>,
 }
 
 #[cfg(feature = "ssr")]
@@ -35,7 +36,7 @@ impl PortForward {
     pub fn new(port: u16) -> Self {
         Self {
             port,
-            peer: Box::new(pingora::upstreams::peer::HttpPeer::new(
+            peer: Arc::new(pingora::upstreams::peer::HttpPeer::new(
                 format!("0.0.0.0:{}", port),
                 false,
                 String::new(),
@@ -156,7 +157,7 @@ pub struct ExposedPort {
     pub port: u16,
     #[cfg(feature = "ssr")]
     #[serde(skip)]
-    pub peer: Option<Box<pingora::upstreams::peer::HttpPeer>>,
+    pub peer: Option<Arc<pingora::upstreams::peer::HttpPeer>>,
     pub domains: Vec<Domain>,
 }
 
@@ -262,7 +263,7 @@ impl Project {
 #[derive(Serialize, Deserialize)]
 pub struct ProjectFields {
     pub id: Uuid,
-    pub name: String,
+    pub name: Cow<'static, str>,
     pub project_type: ProjectType,
 }
 
@@ -444,7 +445,7 @@ pub async fn add_port_forward_project(
     let id = uuid::Uuid::new_v4();
     let project = Arc::new(Project {
         id,
-        name: name.to_string(),
+        name: Cow::Owned(name.to_string()),
         project_type: ProjectType::PortForward(PortForward::new(port)),
     });
     context.update_project(id, project.clone()).await?;

@@ -1,5 +1,6 @@
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use leptos::create_effect;
 use leptos::create_memo;
@@ -78,7 +79,7 @@ pub fn ProjectPage() -> impl IntoView {
                         .map(|p| {
                             if let Ok(p) = p {
                                 view! {
-                                    <h1 class="text-4xl">{&p.name}</h1>
+                                    <h1 class="text-4xl">{p.name}</h1>
                                     <div class="text-slate-600 dark:text-slate-400 text-sm">
                                         {p.id.to_string()}
                                     </div>
@@ -116,6 +117,9 @@ pub fn ProjectPage() -> impl IntoView {
                                             path: "/container",
                                         });
                                 }
+                                pages.push(
+                                    ChildMenus { name: "Settings", path: "/settings" }
+                                );
                                 pages
                             }
 
@@ -180,7 +184,7 @@ pub fn GeneralSettings() -> impl IntoView {
                         Some(ProjectType::PortForward(PortForward {
                             port: 3000,
                             #[cfg(feature = "ssr")]
-                            peer: Box::new(pingora::upstreams::peer::HttpPeer::new(
+                            peer: Arc::new(pingora::upstreams::peer::HttpPeer::new(
                                 "0.0.0.0:3000",
                                 false,
                                 String::new(),

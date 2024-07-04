@@ -83,7 +83,7 @@ async fn get_session_domain(
     let host = UniCase::<String>::from(get_host(session));
 
     let peers = project_context.get_domain(&host).await;
-    (host.clone(), peers)
+    (host, peers)
 }
 
 #[async_trait::async_trait]
@@ -113,7 +113,7 @@ impl ProxyHttp for Gateway {
                     .map(|d| d.ssl_digest.is_some())
                     .unwrap_or(false);
                 if !is_tls {
-                    let uri = _session.req_header().uri.clone();
+                    let uri = &_session.req_header().uri;
                     let new_uri = http::uri::Builder::from(uri.clone())
                         .scheme("https")
                         .authority(_ctx.host.to_lowercase())
@@ -150,7 +150,7 @@ impl ProxyHttp for Gateway {
                                     warn!("Cant finish body {err:?}")
                                 }
 
-                                info!("Will redirect to TLS path \n{uri} -> {new_uri}");
+                                // info!("Will redirect to TLS path \n{uri} -> {new_uri}");
 
                                 return Ok(true);
                             }
@@ -193,7 +193,7 @@ impl ProxyHttp for Gateway {
                     ) -> anyhow::Result<Box<HttpPeer>> {
                         match &project.project_type {
                             app::common::ProjectType::PortForward(port) => {
-                                return Ok(port.peer.clone());
+                                return Ok(Box::new(port.peer.as_ref().clone()));
                             }
                             app::common::ProjectType::Container(container) => {
                                 if container.status.is_running() {
@@ -202,7 +202,7 @@ impl ProxyHttp for Gateway {
                                     });
                                     if let Some(port) = port {
                                         if let Some(peer) = &port.peer {
-                                            return Ok(peer.clone());
+                                            return Ok(Box::new(peer.as_ref().clone()));
                                         }
                                     }
                                 }
