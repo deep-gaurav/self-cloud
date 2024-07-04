@@ -4,7 +4,7 @@ use leptos::{expect_context, server, use_context, ServerFnError};
 use uuid::Uuid;
 
 use crate::common::{
-    Container, DomainStatusFields, ExposedPort, PortForward, Project, ProjectType, Token,
+    Container, DomainStatusFields, ExposedPort, PortForward, Project, ProjectType,
 };
 
 #[server(InspectContainer)]

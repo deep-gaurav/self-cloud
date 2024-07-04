@@ -16,6 +16,8 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
+use leptos_toaster::Toaster;
+
 pub mod api;
 pub mod auth;
 pub mod common;
@@ -39,42 +41,45 @@ pub fn App() -> impl IntoView {
         // sets the document title
         <Title text="Welcome to SelfCloud"/>
 
-        // content for this welcome page
-        <Router fallback=|| {
-            let mut outside_errors = Errors::default();
-            outside_errors.insert_with_default_key(AppError::NotFound);
-            view! { <ErrorTemplate outside_errors/> }.into_view()
-        }>
+        <Toaster position=leptos_toaster::ToasterPosition::BottomCenter>
 
-            <main class="min-h-full w-full bg-slate-100 dark:bg-black dark:text-slate-50 flex flex-col">
-                <Routes>
-                    <Route
-                        ssr=SsrMode::PartiallyBlocked
-                        path=""
-                        view=move || view! { <AuthCheck login=login is_auth_required=false/> }
-                    >
-                        <Route path="" view=move || view! { <HomePage login=login/> }/>
-                    </Route>
+            // content for this welcome page
+            <Router fallback=|| {
+                let mut outside_errors = Errors::default();
+                outside_errors.insert_with_default_key(AppError::NotFound);
+                view! { <ErrorTemplate outside_errors/> }.into_view()
+            }>
 
-                    <Route
-                        ssr=SsrMode::PartiallyBlocked
-                        path="dashboard"
-                        view=move || view! { <AuthCheck login=login is_auth_required=true/> }
-                    >
-                        <Route path="" view=Dashboard/>
-                        <Route path="projects" view=ProjectsHome>
-                            <Route path="" view=ProjectsList/>
-                            <Route path=":id" view=ProjectPage>
-                                <Route path="" view=GeneralSettings/>
-                                <Route path="domains" view=DomainsList/>
-                                <Route path="container" view=ContainerPage/>
-                                <Route path="settings" view=ProjectSettings/>
+                <main class="min-h-full w-full bg-slate-100 dark:bg-black dark:text-slate-50 flex flex-col">
+                    <Routes>
+                        <Route
+                            ssr=SsrMode::PartiallyBlocked
+                            path=""
+                            view=move || view! { <AuthCheck login=login is_auth_required=false/> }
+                        >
+                            <Route path="" view=move || view! { <HomePage login=login/> }/>
+                        </Route>
+
+                        <Route
+                            ssr=SsrMode::PartiallyBlocked
+                            path="dashboard"
+                            view=move || view! { <AuthCheck login=login is_auth_required=true/> }
+                        >
+                            <Route path="" view=Dashboard/>
+                            <Route path="projects" view=ProjectsHome>
+                                <Route path="" view=ProjectsList/>
+                                <Route path=":id" view=ProjectPage>
+                                    <Route path="" view=GeneralSettings/>
+                                    <Route path="domains" view=DomainsList/>
+                                    <Route path="container" view=ContainerPage/>
+                                    <Route path="settings" view=ProjectSettings/>
+                                </Route>
                             </Route>
                         </Route>
-                    </Route>
-                </Routes>
-            </main>
-        </Router>
+                    </Routes>
+                </main>
+            </Router>
+        </Toaster>
     }
 }
 
@@ -120,7 +125,8 @@ pub fn AuthCheck(
                                 view! {
                                     <NavBar/>
                                     <Outlet/>
-                                }.into_view()
+                                }
+                                    .into_view()
                             }
                         }
                     }

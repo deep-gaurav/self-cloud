@@ -117,9 +117,11 @@ pub fn ProjectPage() -> impl IntoView {
                                             path: "/container",
                                         });
                                 }
-                                pages.push(
-                                    ChildMenus { name: "Settings", path: "/settings" }
-                                );
+                                pages
+                                    .push(ChildMenus {
+                                        name: "Settings",
+                                        path: "/settings",
+                                    });
                                 pages
                             }
 
@@ -130,15 +132,22 @@ pub fn ProjectPage() -> impl IntoView {
                                         == format!("{}{}", use_route().path(), m.path)
                                 });
                                 view! {
-                                    <A
-                                        href=move || format!("{}{}", use_route().path(), m.path)
-                                    >
+                                    <A href=move || format!("{}{}", use_route().path(), m.path)>
                                         <span
-                                        class="dark:hover:bg-white/5 hover:bg-black/5 p-3 rounded text-sm cursor-pointer text-slate-700 dark:text-white/65 block"
-                                        class=(
-                                            ["text-black", "dark:text-white", "font-medium","dark:bg-white/10","bg-black/10"],
-                                            is_active,
-                                        )>{m.name}</span>
+                                            class="dark:hover:bg-white/5 hover:bg-black/5 p-3 rounded text-sm cursor-pointer text-slate-700 dark:text-white/65 block"
+                                            class=(
+                                                [
+                                                    "text-black",
+                                                    "dark:text-white",
+                                                    "font-medium",
+                                                    "dark:bg-white/10",
+                                                    "bg-black/10",
+                                                ],
+                                                is_active,
+                                            )
+                                        >
+                                            {m.name}
+                                        </span>
                                     </A>
                                 }
                             }
@@ -185,7 +194,7 @@ pub fn GeneralSettings() -> impl IntoView {
                             port: 3000,
                             #[cfg(feature = "ssr")]
                             peer: Arc::new(pingora::upstreams::peer::HttpPeer::new(
-                                "0.0.0.0:3000",
+                                "127.0.0.1:3000",
                                 false,
                                 String::new(),
                             )),
@@ -320,8 +329,13 @@ pub fn GeneralSettings() -> impl IntoView {
                                     .into_view()
                             }
                             ProjectType::Container(container) => {
-                                let (exposed_ports, set_exposed_ports)= create_signal(container.exposed_ports.into_iter().map(|p|(random_ascii_string(8),p)).collect::<HashMap<String, ExposedPort>>());
-
+                                let (exposed_ports, set_exposed_ports) = create_signal(
+                                    container
+                                        .exposed_ports
+                                        .into_iter()
+                                        .map(|p| (random_ascii_string(8), p))
+                                        .collect::<HashMap<String, ExposedPort>>(),
+                                );
                                 view! {
                                     <ActionForm action=update_image_action>
                                         <input
@@ -356,14 +370,13 @@ pub fn GeneralSettings() -> impl IntoView {
                                                                         prop:value=exposed_port.port
                                                                         type="number"
                                                                         id="port"
-                                                                        name= format!("exposed_ports[{i2}][port]")
+                                                                        name=format!("exposed_ports[{i2}][port]")
                                                                         required
                                                                         class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                     />
                                                                 </div>
 
                                                                 <div class=" flex flex-col">
-
 
                                                                     <label for="domain" class="text-sm dark:text-white/50">
                                                                         "Domain"
@@ -385,7 +398,10 @@ pub fn GeneralSettings() -> impl IntoView {
                                                                                     view! {
                                                                                         <option
                                                                                             value=domain.0
-                                                                                            selected=exposed_port.domains.iter().any(|d|d.name.to_lowercase() == domain.0.to_lowercase())
+                                                                                            selected=exposed_port
+                                                                                                .domains
+                                                                                                .iter()
+                                                                                                .any(|d| d.name.to_lowercase() == domain.0.to_lowercase())
                                                                                         >
                                                                                             {domain.0}
                                                                                         </option>
@@ -418,7 +434,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                                 type="button"
                                                 class="p-2 rounded border bg-white/90 px-6 text-black"
                                                 on:click=move |_| {
-                                                    let new_port = ExposedPort{
+                                                    let new_port = ExposedPort {
                                                         port: 0,
                                                         domains: vec![].into(),
                                                         #[cfg(feature = "ssr")]

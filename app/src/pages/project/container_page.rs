@@ -176,10 +176,8 @@ pub fn ContainerPage() -> impl IntoView {
                     }
                 }
             }
-
-            <div class="h-2"/>
-
-            <ContainerSubPages id />
+            <div class="h-2"></div>
+            <ContainerSubPages id/>
 
         </Transition>
     }
@@ -226,45 +224,40 @@ pub fn ContainerSubPages(id: Uuid) -> impl IntoView {
                 key=|page| page.r#type.clone()
                 children=move |page| {
                     view! {
-                        <button class="p-2 border dark:border-white/80 border-black mb-[-0.05em] rounded-t-lg flex gap-2 items-center"
-                            class=(["border-b-slate-100","dark:border-b-black", "p-3"], move || page.r#type == selected_page.get())
+                        <button
+                            class="p-2 border dark:border-white/80 border-black mb-[-0.05em] rounded-t-lg flex gap-2 items-center"
+                            class=(
+                                ["border-b-slate-100", "dark:border-b-black", "p-3"],
+                                move || page.r#type == selected_page.get(),
+                            )
 
-                            on:click = move |_| {
-                                set_selected_page.set(page.r#type)
-                            }
+                            on:click=move |_| { set_selected_page.set(page.r#type) }
                         >
-                            <Icon
-                                icon={page.icon}
-                            />
-                            {
-                                page.name
-                            }
+
+                            <Icon icon=page.icon/>
+
+                            {page.name}
+
                         </button>
                     }
                 }
             />
+
         </div>
 
-        <div class="h-2" />
-        {
-            move || match selected_page.get(){
-                ContainerPageType::Logs => {
-                    view! {
-                        <ContainerLogs id />
-                    }
-                },
-                ContainerPageType::Stats => {
-                    view! {
-                        <ContainerStats id />
-                    }
-                },
-                ContainerPageType::Attach => {
-                    view! {
-                        <ContainerAttach id />
-                    }
-                }
+        <div class="h-2"></div>
+
+        {move || match selected_page.get() {
+            ContainerPageType::Logs => {
+                view! { <ContainerLogs id/> }
             }
-        }
+            ContainerPageType::Stats => {
+                view! { <ContainerStats id/> }
+            }
+            ContainerPageType::Attach => {
+                view! { <ContainerAttach id/> }
+            }
+        }}
     }
 }
 #[component]
@@ -384,10 +377,9 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                 // Decorate our chart
                 top=RotatedLabel::middle("CPU Usage")
                 left=TickLabels::aligned_floats()
-                bottom = TickLabels::timestamps()
+                bottom=TickLabels::timestamps()
                 // bottom=Legend::end()
                 inner=[
-                    // Standard set of inner layout options
                     AxisMarker::left_edge().into_inner(),
                     AxisMarker::bottom_edge().into_inner(),
                     XGridLine::default().into_inner(),
@@ -395,10 +387,11 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                     YGuideLine::over_mouse().into_inner(),
                     XGuideLine::over_data().into_inner(),
                 ]
+
                 tooltip=Tooltip::left_cursor()
             />
         </div>
-        <div class="h-6" />
+        <div class="h-6"></div>
         <div class="bg-white p-2 rounded-md border text-black">
             <Chart
                 aspect_ratio=AspectRatio::from_env_width(300.0)
@@ -408,10 +401,9 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                 // Decorate our chart
                 top=RotatedLabel::middle("Memory Usage")
                 left=TickLabels::aligned_floats()
-                bottom = TickLabels::timestamps()
+                bottom=TickLabels::timestamps()
                 // bottom=Legend::end()
                 inner=[
-                    // Standard set of inner layout options
                     AxisMarker::left_edge().into_inner(),
                     AxisMarker::bottom_edge().into_inner(),
                     XGridLine::default().into_inner(),
@@ -419,6 +411,7 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
                     YGuideLine::over_mouse().into_inner(),
                     XGuideLine::over_data().into_inner(),
                 ]
+
                 tooltip=Tooltip::left_cursor()
             />
         </div>
@@ -468,8 +461,10 @@ pub fn ContainerLogs(id: Uuid) -> impl IntoView {
     });
 
     view! {
-        <div _ref=div_ref class="bg-white p-2 rounded-md border text-black whitespace-break-spaces max-h-80 overflow-auto">
-        </div>
+        <div
+            _ref=div_ref
+            class="bg-white p-2 rounded-md border text-black whitespace-break-spaces max-h-80 overflow-auto"
+        ></div>
     }
 }
 
@@ -549,19 +544,16 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
     });
 
     view! {
-        <link href="/css/xterm.min.css " rel="stylesheet" />
-        <script src="/js/xterm.min.js"
-            on:load=move|_|{
+        <link href="/css/xterm.min.css " rel="stylesheet"/>
+        <script
+            src="/js/xterm.min.js"
+            on:load=move |_| {
                 #[derive(Serialize)]
                 struct TerminalOptions {
                     scrollback: u64,
                 }
-
-                let options = serde_wasm_bindgen::to_value(&TerminalOptions{
-                    scrollback: 0
-                });
+                let options = serde_wasm_bindgen::to_value(&TerminalOptions { scrollback: 0 });
                 if let Ok(options) = options {
-
                     let terminal = Terminal::new(&options);
                     if let Some(div) = div_ref.get_untracked() {
                         tracing::info!("Open terminal");
@@ -569,12 +561,12 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
                     }
                     use std::rc::Rc;
                     set_terminal.set(Some(Rc::new(terminal)));
-                }else{
+                } else {
                     tracing::warn!("Cant convert terminalOptions");
                 }
             }
-        />
-        <div _ref=div_ref class="">
-        </div>
+        ></script>
+
+        <div _ref=div_ref class=""></div>
     }
 }

@@ -19,7 +19,12 @@ pub fn ProjectSettings() -> impl IntoView {
         <Transition>
             <div>
                 <div class="text-xl ">"Project Name"</div>
-                <input class="" prop:value=move || project.get().and_then(|p|p.ok()).map(|p|p.name.to_string()) />
+                <input
+                    class=""
+                    prop:value=move || {
+                        project.get().and_then(|p| p.ok()).map(|p| p.name.to_string())
+                    }
+                />
                 <div class="h-2"></div>
             </div>
 

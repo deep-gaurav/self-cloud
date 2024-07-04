@@ -167,6 +167,7 @@ dependencies = [
  "leptos_meta",
  "leptos_router",
  "leptos_sse",
+ "leptos_toaster",
  "once_cell",
  "pingora",
  "rand",
@@ -2458,7 +2459,7 @@ dependencies = [
  "leptos_integration_utils",
  "leptos_meta",
  "linear-map",
- "lru 0.11.1",
+ "lru",
  "once_cell",
  "percent-encoding",
  "regex",
@@ -2507,6 +2508,19 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos_toaster"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92987c03b0aadf6a12b4a6e8dddc6de9519a08ab19dafd03199ebf913b335141"
+dependencies = [
+ "js-sys",
+ "leptos",
+ "leptos_meta",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -2570,15 +2584,6 @@ name = "lru"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a83fb7698b3643a0e34f9ae6f2e8f0178c0fd42f8b59d493aa271ff3a5bf21"
-dependencies = [
- "hashbrown 0.14.5",
-]
-
-[[package]]
-name = "lru"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
 dependencies = [
  "hashbrown 0.14.5",
 ]
@@ -3027,7 +3032,7 @@ dependencies = [
  "httpdate",
  "indexmap 1.9.3",
  "log",
- "lru 0.12.3",
+ "lru",
  "once_cell",
  "parking_lot",
  "pingora-core",
@@ -3065,7 +3070,7 @@ dependencies = [
  "httpdate",
  "libc",
  "log",
- "lru 0.12.3",
+ "lru",
  "nix",
  "once_cell",
  "openssl-probe",
@@ -3189,7 +3194,7 @@ checksum = "2009859df7d9db0e67622a54cb91caf8b3510c8016d4cea04c568b3cb2d35a1f"
 dependencies = [
  "crossbeam-queue",
  "log",
- "lru 0.12.3",
+ "lru",
  "parking_lot",
  "pingora-timeout",
  "thread_local",

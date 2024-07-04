@@ -67,9 +67,16 @@ serde_path_to_error.workspace = true
 
 smallvec.workspace = true
 
+leptos_toaster.workspace = true
+
 [features]
 default = []
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+hydrate = [
+    "leptos/hydrate",
+    "leptos_meta/hydrate",
+    "leptos_router/hydrate",
+    "leptos_toaster/hydrate",
+]
 ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
@@ -84,4 +91,5 @@ ssr = [
     "dep:base64",
     "dep:time",
     "dep:docker-api",
+    "leptos_toaster/ssr",
 ]
