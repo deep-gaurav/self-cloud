@@ -25,6 +25,10 @@ use leptos_router::ActionForm;
 use leptos_router::Outlet;
 use leptos_router::Params;
 use leptos_router::A;
+use leptos_toaster::Toast;
+use leptos_toaster::ToastId;
+use leptos_toaster::ToastVariant;
+use leptos_toaster::Toasts;
 use leptos_use::use_interval_fn;
 use leptos_use::utils::Pausable;
 use uuid::Uuid;
@@ -241,11 +245,24 @@ pub fn GeneralSettings() -> impl IntoView {
             result
         },
     );
+    let toast_context = expect_context::<Toasts>();
 
     create_effect(move |_| {
-        update_image_action.value().get();
-        update_port_action.value().get();
-        project.refetch();
+        if update_image_action.version().get() > 0 || update_port_action.version().get() > 0 {
+            let toast_id = ToastId::new();
+            toast_context.toast(
+                view! {
+                    <Toast
+                        toast_id
+                        variant=ToastVariant::Success
+                        title=view! { "Project Updated" }.into_view()
+                    />
+                },
+                Some(toast_id),
+                None,
+            );
+            project.refetch();
+        }
     });
 
     create_effect(move |p| {
