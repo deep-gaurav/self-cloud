@@ -4,7 +4,7 @@ use leptos::{expect_context, server, use_context, ServerFnError};
 use uuid::Uuid;
 
 use crate::common::{
-    Container, DomainStatusFields, ExposedPort, PortForward, Project, ProjectType,
+    Container, DomainStatusFields, ExposedPort, PortForward, Project, ProjectType, Token,
 };
 
 #[server(InspectContainer)]
@@ -271,6 +271,47 @@ pub async fn update_project_image(
         .await
         .map_err(ServerFnError::new)?;
 
+    Ok(())
+}
+
+#[server(UpdateProjectNameToken)]
+pub async fn update_project_name_token(
+    id: Uuid,
+    project_name: String,
+    tokens: Option<HashMap<String, Token>>,
+) -> Result<(), ServerFnError> {
+    user()?;
+
+    let mut project_context = project_context()?;
+
+    let project = project_context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?;
+
+    let new_project_type = match project.project_type.clone() {
+        ProjectType::PortForward(port) => {
+            if Some(true) == tokens.map(|t| !t.is_empty()) {
+                return Err(ServerFnError::new(
+                    "Project type port forward cant have tokens",
+                ));
+            };
+            ProjectType::PortForward(port)
+        }
+        ProjectType::Container(mut container) => {
+            container.tokens = tokens.unwrap_or_default();
+            ProjectType::Container(container)
+        }
+    };
+    let new_project = Project {
+        name: project_name,
+        id,
+        project_type: new_project_type,
+    };
+    project_context
+        .update_project(id, Arc::new(new_project))
+        .await
+        .map_err(ServerFnError::new)?;
     Ok(())
 }
 

@@ -10,6 +10,7 @@ use leptos_chartistry::{
     AspectRatio, AxisMarker, Chart, Line, RotatedLabel, Series, TickLabels, Tooltip, XGridLine,
     XGuideLine, YGridLine, YGuideLine,
 };
+use leptos_toaster::{Toast, ToastId, ToastVariant, Toasts};
 use leptos_use::{use_interval_fn, utils::Pausable};
 use leptos_use::{use_websocket, UseWebsocketReturn};
 use serde::{Deserialize, Serialize};
@@ -49,10 +50,22 @@ pub fn ContainerPage() -> impl IntoView {
         },
         5000,
     );
-
+    let toast_context = expect_context::<Toasts>();
     let pause_container_action = create_server_action::<PauseContainer>();
     create_effect(move |_| {
         if pause_container_action.version().get() > 0 {
+            let toast_id = ToastId::new();
+            toast_context.toast(
+                view! {
+                    <Toast
+                        toast_id
+                        variant=ToastVariant::Info
+                        title=view! { "Container Paused" }.into_view()
+                    />
+                },
+                Some(toast_id),
+                None,
+            );
             container.refetch();
         }
     });
@@ -60,6 +73,18 @@ pub fn ContainerPage() -> impl IntoView {
     let resume_container_action = create_server_action::<ResumeContainer>();
     create_effect(move |_| {
         if resume_container_action.version().get() > 0 {
+            let toast_id = ToastId::new();
+            toast_context.toast(
+                view! {
+                    <Toast
+                        toast_id
+                        variant=ToastVariant::Info
+                        title=view! { "Container Resumed" }.into_view()
+                    />
+                },
+                Some(toast_id),
+                None,
+            );
             container.refetch();
         }
     });
@@ -67,6 +92,18 @@ pub fn ContainerPage() -> impl IntoView {
     let stop_container_action = create_server_action::<StopContainer>();
     create_effect(move |_| {
         if stop_container_action.version().get() > 0 {
+            let toast_id = ToastId::new();
+            toast_context.toast(
+                view! {
+                    <Toast
+                        toast_id
+                        variant=ToastVariant::Info
+                        title=view! { "Container Stopped" }.into_view()
+                    />
+                },
+                Some(toast_id),
+                None,
+            );
             container.refetch();
         }
     });
@@ -74,6 +111,18 @@ pub fn ContainerPage() -> impl IntoView {
     let start_container_action = create_server_action::<StartContainer>();
     create_effect(move |_| {
         if start_container_action.version().get() > 0 {
+            let toast_id = ToastId::new();
+            toast_context.toast(
+                view! {
+                    <Toast
+                        toast_id
+                        variant=ToastVariant::Info
+                        title=view! { "Container Started" }.into_view()
+                    />
+                },
+                Some(toast_id),
+                None,
+            );
             container.refetch();
         }
     });
@@ -176,8 +225,7 @@ pub fn ContainerPage() -> impl IntoView {
                     }
                 }
             }
-            <div class="h-2"></div>
-            <ContainerSubPages id/>
+            <div class="h-2"></div> <ContainerSubPages id/>
 
         </Transition>
     }
@@ -565,7 +613,8 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
                     tracing::warn!("Cant convert terminalOptions");
                 }
             }
-        ></script>
+        >
+        </script>
 
         <div _ref=div_ref class=""></div>
     }

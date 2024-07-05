@@ -1,10 +1,22 @@
 use leptos::{
-    component, create_memo, expect_context, view, IntoView, Resource, ServerFnError, SignalGet,
-    Transition,
+    component, create_effect, create_memo, create_server_action, expect_context, view, IntoView,
+    Resource, ServerFnError, SignalGet, Transition,
 };
+use leptos_toaster::{Toast, ToastId, ToastVariant, Toasts};
+use tracing::info;
 use uuid::Uuid;
 
-use crate::common::Project;
+use crate::api::UpdateProjectNameToken;
+use crate::common::ProjectType;
+use crate::{common::Project, components::input_field::InputField};
+use leptos::DynAttrs;
+use leptos_router::ActionForm;
+
+use crate::common::Token;
+use crate::utils::random_ascii_string;
+use leptos::SignalGetUntracked;
+use leptos::SignalSet;
+use leptos::{create_signal, For};
 
 #[component]
 pub fn ProjectSettings() -> impl IntoView {
@@ -15,18 +27,159 @@ pub fn ProjectSettings() -> impl IntoView {
     let project_type =
         create_memo(move |_| project.get().and_then(|p| p.ok()).map(|p| p.project_type));
 
+    let update_project_action = create_server_action::<UpdateProjectNameToken>();
+    let toast_context = expect_context::<Toasts>();
+
+    create_effect(move |_| {
+        if update_project_action.version().get() > 0 {
+            let toast_id = ToastId::new();
+            toast_context.toast(
+                view! {
+                    <Toast
+                        toast_id
+                        variant=ToastVariant::Success
+                        title=view! { "Update Success" }.into_view()
+                    />
+                },
+                Some(toast_id),
+                None,
+            );
+            project.refetch();
+        }
+    });
     view! {
         <Transition>
-            <div>
-                <div class="text-xl ">"Project Name"</div>
+            <ActionForm action=update_project_action>
+                <input type="hidden" name="id" value=id.to_string() />
+                <div class="text-xl " class=("abc", move || true)>
+                    "Project Name"
+                </div>
                 <input
-                    class=""
-                    prop:value=move || {
-                        project.get().and_then(|p| p.ok()).map(|p| p.name.to_string())
-                    }
+                    class="p-2 border w-full rounded bg-white dark:bg-white/10 dark:border-white/5"
+                    name="project_name"
+                    prop:value=move || project.get().and_then(|p| p.ok()).map(|p| p.name)
                 />
                 <div class="h-2"></div>
-            </div>
+
+                {move || match project_type.get() {
+                    Some(project_type) => {
+                        match project_type {
+                            ProjectType::PortForward(_) => view! {}.into_view(),
+                            ProjectType::Container(container) => {
+                                let (tokens, set_tokens) = create_signal(container.tokens);
+                                view! {
+                                    <div class="text-md">"Tokens"</div>
+                                    <div class="">
+                                        <For
+                                            each=move || tokens.get().into_iter()
+                                            key=|p| p.0.clone()
+                                            children=move |(index, token)| {
+                                                let token_id = index.clone();
+                                                view! {
+                                                    <div class="flex flex-col gap-4 p-2 border dark:border-white/20 m-2 rounded">
+                                                        <div class=" flex flex-col">
+                                                            <label for="token" class="text-sm dark:text-white/50">
+                                                                Token
+                                                            </label>
+                                                            <input
+                                                                prop:value=&token.token
+                                                                type="hidden"
+                                                                name=format!("tokens[{index}][token]")
+                                                                required
+                                                                class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                            />
+                                                            <input
+                                                                prop:value=&token.token
+                                                                disabled
+                                                                type="text"
+                                                                id="token"
+                                                                required
+                                                                class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                            />
+                                                        </div>
+                                                        <div class="flex gap-4 flex-wrap">
+
+                                                            <div class=" flex flex-col">
+                                                                <label for="description" class="text-sm dark:text-white/50">
+                                                                    Description
+                                                                </label>
+                                                                <input
+                                                                    prop:value=&token.description
+                                                                    type="text"
+                                                                    id="description"
+                                                                    name=format!("tokens[{index}][description]")
+                                                                    required
+                                                                    class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                />
+                                                            </div>
+
+                                                            <div class=" flex flex-col">
+                                                                <label for="expiry" class="text-sm dark:text-white/50">
+                                                                    Expiry
+                                                                </label>
+                                                                <input
+                                                                    type="date"
+                                                                    prop:value=token
+                                                                        .expiry
+                                                                        .map(|e| e.to_string())
+                                                                        .unwrap_or_default()
+                                                                    id="expiry"
+                                                                    name=format!("tokens[{index}][expiry]")
+                                                                    class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                />
+                                                            </div>
+
+                                                            <button
+                                                                class="p-2 rounded bg-red-700 px-6 text-white mt-5"
+                                                                on:click=move |_| {
+                                                                    let mut tokens = tokens.get_untracked();
+                                                                    tokens.remove(&token_id);
+                                                                    set_tokens.set(tokens)
+                                                                }
+                                                            >
+
+                                                                "Delete Token"
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            }
+                                        />
+
+                                        <button
+                                            type="button"
+                                            class="p-2 rounded border bg-white/90 px-6 text-black"
+                                            on:click=move |_| {
+                                                let new_token = Token {
+                                                    expiry: None,
+                                                    description: String::new(),
+                                                    token: random_ascii_string(20),
+                                                };
+                                                let mut tokens = tokens.get_untracked();
+                                                tokens.insert(new_token.token.clone(), new_token);
+                                                set_tokens.set(tokens);
+                                            }
+                                        >
+
+                                            "Generate new Token"
+                                        </button>
+                                    </div>
+                                }
+                                    .into_view()
+                            }
+                        }
+                    }
+                    None => view! {}.into_view(),
+                }}
+
+                <div class="h-4" />
+                <input
+                    type="submit"
+                    value="Update"
+                    class="border p-2 px-10 rounded bg-slate-800 text-white disabled:cursor-no-drop disabled:bg-slate-200 disabled:text-black dark:disabled:bg-white/20 dark:disabled:text-white dark:border-none dark:bg-white/90 dark:text-black"
+                />
+
+            </ActionForm>
 
         </Transition>
     }

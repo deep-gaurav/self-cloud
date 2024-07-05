@@ -41,7 +41,7 @@ pub fn App() -> impl IntoView {
         // sets the document title
         <Title text="Welcome to SelfCloud"/>
 
-        <Toaster position=leptos_toaster::ToasterPosition::BottomCenter>
+        <Toaster position=leptos_toaster::ToasterPosition::BottomRight>
 
             // content for this welcome page
             <Router fallback=|| {
