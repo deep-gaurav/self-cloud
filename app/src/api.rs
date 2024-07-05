@@ -289,10 +289,7 @@ pub async fn delete_project(id: Uuid) -> Result<(), ServerFnError> {
         if let Some(container) = container.status.as_running() {
             use docker_api::opts::{ContainerRemoveOpts, ContainerStopOpts};
 
-            container
-                .stop(&ContainerStopOpts::builder().build())
-                .await
-                .map_err(ServerFnError::new)?;
+            let _ = container.stop(&ContainerStopOpts::builder().build()).await;
             container
                 .remove(&ContainerRemoveOpts::builder().force(true).build())
                 .await
