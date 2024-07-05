@@ -1,0 +1,43 @@
+name: Rust
+
+on: 
+  push:
+    tags:
+    - '*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+  
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: sudo apt update && sudo apt install -y clang cmake libevent-dev libclang-dev libcurl4-openssl-dev curl
+    - run: rustup toolchain install nightly
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: "syncserver"
+
+    - name: Add wasm32
+      run: rustup target add wasm32-unknown-unknown
+
+    - name: Install Cargo Leptos
+      run: cargo install cargo-leptos
+
+    - name: Build
+      run: cargo leptos build --release
+      
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+            target/binrelease/server
+            target/site
