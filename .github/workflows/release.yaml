@@ -22,8 +22,6 @@ jobs:
       run: sudo apt update && sudo apt install -y clang cmake libevent-dev libclang-dev libcurl4-openssl-dev curl
     - run: rustup toolchain install nightly
     - uses: Swatinem/rust-cache@v2
-      with:
-        shared-key: "syncserver"
 
     - name: Add wasm32
       run: rustup target add wasm32-unknown-unknown
