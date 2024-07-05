@@ -140,6 +140,12 @@ async fn run_and_set_container(
                         // .image_arch("amd64")
                         .name(id)
                         .image(image.name())
+                        .env(
+                            container
+                                .env_vars
+                                .iter()
+                                .map(|ev| format!("{}={}", ev.key, ev.val)),
+                        )
                         .publish_all_ports();
 
                     for expose_port in container.exposed_ports.iter() {

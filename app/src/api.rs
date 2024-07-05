@@ -4,7 +4,8 @@ use leptos::{expect_context, server, use_context, ServerFnError};
 use uuid::Uuid;
 
 use crate::common::{
-    Container, DomainStatusFields, ExposedPort, PortForward, Project, ProjectType, Token,
+    Container, DomainStatusFields, EnvironmentVar, ExposedPort, PortForward, Project, ProjectType,
+    Token,
 };
 
 #[server(InspectContainer)]
@@ -232,6 +233,7 @@ pub async fn update_project_port(id: Uuid, port: u16) -> Result<(), ServerFnErro
 pub async fn update_project_image(
     id: Uuid,
     exposed_ports: Option<HashMap<String, ExposedPort>>,
+    env_vars: Option<HashMap<String, EnvironmentVar>>,
     // tokens: Option<HashMap<String, Token>>,
 ) -> Result<(), ServerFnError> {
     user()?;
@@ -250,6 +252,9 @@ pub async fn update_project_image(
 
     let new_project = Project {
         project_type: ProjectType::Container(Container {
+            env_vars: env_vars
+                .map(|ev| ev.into_values().collect::<Vec<_>>().into())
+                .unwrap_or_default(),
             exposed_ports: exposed_ports
                 .map(|e| {
                     e.into_values()

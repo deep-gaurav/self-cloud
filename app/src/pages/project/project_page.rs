@@ -39,6 +39,7 @@ use crate::api::AddProjectDomain;
 use crate::api::UpdateProjectImage;
 use crate::api::UpdateProjectPort;
 use crate::common::Container;
+use crate::common::EnvironmentVar;
 use crate::common::ExposedPort;
 use crate::common::PortForward;
 use crate::common::Project;
@@ -227,6 +228,7 @@ pub fn GeneralSettings() -> impl IntoView {
                             #[cfg(feature = "ssr")]
                             status: crate::common::ContainerStatus::None,
                             tokens: HashMap::new(),
+                            env_vars: vec![].into(),
                         }))
                     }
                 })
@@ -354,6 +356,15 @@ pub fn GeneralSettings() -> impl IntoView {
                                         .map(|p| (random_ascii_string(8), p))
                                         .collect::<HashMap<String, ExposedPort>>(),
                                 );
+
+                                let (env_vars, set_env_vars) = create_signal(
+                                    container
+                                        .env_vars
+                                        .into_iter()
+                                        .map(|p| (random_ascii_string(8), p))
+                                        .collect::<HashMap<String, EnvironmentVar>>(),
+                                );
+
                                 view! {
                                     <ActionForm action=update_image_action>
                                         <input
@@ -363,7 +374,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                                 project.get().and_then(|p| p.ok()).map(|p| p.id.to_string())
                                             }
                                         />
-
+                                        // Exposed Port
                                         <div class="h-4"></div>
 
                                         <div class="text-md">"Exposed Port"</div>
@@ -467,8 +478,92 @@ pub fn GeneralSettings() -> impl IntoView {
                                                 "Add New Exposed Port"
                                             </button>
                                         </div>
+
+                                        // EnvironmentVar
+
                                         <div class="h-4"></div>
 
+                                        <div class="text-md">"Environment Variable"</div>
+
+                                        <div class="">
+                                            <For
+                                                each=move || env_vars.get().into_iter()
+                                                key=|p| p.0.clone()
+                                                children=move |(index, environment_var)| {
+                                                    use leptos::store_value;
+
+                                                    let index = store_value(index);
+                                                    view! {
+                                                        <div class="flex flex-col gap-4 p-2 border dark:border-white/20 m-2 rounded">
+                                                            <div class="flex gap-4 flex-wrap">
+
+                                                                <div class=" flex flex-col">
+                                                                    <label for="port" class="text-sm dark:text-white/50">
+                                                                        "Key"
+                                                                    </label>
+                                                                    <input
+                                                                        prop:value=environment_var.key
+                                                                        type="text"
+                                                                        id="key"
+                                                                        name=format!("env_vars[{}][key]", index.get_value())
+                                                                        required
+                                                                        class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                    />
+                                                                </div>
+
+                                                                <div class=" flex flex-col">
+
+                                                                    <label for="domain" class="text-sm dark:text-white/50">
+                                                                        "Value"
+                                                                    </label>
+
+                                                                    <input
+                                                                        prop:value=environment_var.val
+                                                                        type="text"
+                                                                        id="val"
+                                                                        name=format!("env_vars[{}][val]", index.get_value())
+                                                                        required
+                                                                        class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                    />
+                                                                </div>
+
+                                                                <button
+                                                                    class="p-2 rounded bg-red-700 px-6 text-white mt-5"
+                                                                    on:click=move |_| {
+                                                                        let mut env_vars = env_vars.get_untracked();
+                                                                        env_vars.remove(&index.get_value());
+                                                                        set_env_vars.set(env_vars)
+                                                                    }
+                                                                >
+
+                                                                    "Remove Variable"
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                }
+                                            />
+
+                                            <button
+                                                type="button"
+                                                class="p-2 rounded border bg-white/90 px-6 text-black"
+                                                on:click=move |_| {
+                                                    let new_var = EnvironmentVar {
+                                                        key: "".to_string(),
+                                                        val: "".to_string()
+                                                    };
+                                                    let mut vars = env_vars.get_untracked();
+                                                    vars.insert(random_ascii_string(8), new_var);
+                                                    set_env_vars.set(vars);
+                                                }
+                                            >
+
+                                                "Add New Environment Variable"
+                                            </button>
+                                        </div>
+
+
+                                        <div class="h-4" />
                                         <input
                                             type="submit"
                                             value="Update"
