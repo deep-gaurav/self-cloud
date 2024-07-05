@@ -36,15 +36,17 @@ impl BackgroundService for ContainerManager {
                 }
                 _ = period.tick() => {
                     tracing::debug!("Container tick");
-                    let mut peers = self.project_context.get_projects().await;
-                    for project in peers.iter_mut() {
+                    let  peers = self.project_context.get_projects().await;
+                    for project in peers.iter() {
                         if let ProjectType::Container(container) = &project.project_type {
                             if container.status.is_none(){
                                 let mut project_t = project.clone().as_ref().clone();
                                 if let ProjectType::Container( container) = &mut project_t.project_type{
                                     container.status = ContainerStatus::Creating;
                                 }
-                                *project = Arc::new(project_t);
+                                if let Err(err) =  self.project_context.clone().update_project(project_t.id, Arc::new(project_t)).await{
+                                    warn!("Unable to update project {err:?}");
+                                }
                                 let project = project.clone();
                                 let mut context = self.project_context.clone();
                                 tokio::spawn(async move {
@@ -224,7 +226,8 @@ async fn run_and_set_container(
                 warn!("Container not running")
             }
         } else {
-            info!("No image found")
+            info!("No image found");
+            return Err(anyhow::anyhow!("No image found"));
         }
     }
 
