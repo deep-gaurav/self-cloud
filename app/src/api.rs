@@ -1,11 +1,12 @@
 use std::{collections::HashMap, sync::Arc};
 
 use leptos::{expect_context, server, use_context, ServerFnError};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::common::{
     Container, DomainStatusFields, EnvironmentVar, ExposedPort, PortForward, Project, ProjectType,
-    Token,
+    SupportContainer, Token,
 };
 
 #[server(InspectContainer)]
@@ -18,7 +19,13 @@ pub async fn inspect_container(
         .get_project(id)
         .await
         .ok_or(ServerFnError::new("Not project with given id"))?;
-    if let ProjectType::Container(container) = &project.project_type {
+    if let ProjectType::Container {
+        primary_container: container,
+        support_containers,
+        tokens,
+        exposed_ports,
+    } = &project.project_type
+    {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             let inspect = container.inspect().await?;
             Ok(inspect)
@@ -39,7 +46,13 @@ pub async fn pause_container(id: Uuid) -> Result<(), ServerFnError> {
         .get_project(id)
         .await
         .ok_or(ServerFnError::new("Not project with given id"))?;
-    if let ProjectType::Container(container) = &project.project_type {
+    if let ProjectType::Container {
+        primary_container: container,
+        support_containers,
+        tokens,
+        exposed_ports,
+    } = &project.project_type
+    {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             container
                 .pause()
@@ -62,7 +75,13 @@ pub async fn resume_container(id: Uuid) -> Result<(), ServerFnError> {
         .get_project(id)
         .await
         .ok_or(ServerFnError::new("Not project with given id"))?;
-    if let ProjectType::Container(container) = &project.project_type {
+    if let ProjectType::Container {
+        primary_container: container,
+        support_containers,
+        tokens,
+        exposed_ports,
+    } = &project.project_type
+    {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             container
                 .unpause()
@@ -86,7 +105,13 @@ pub async fn stop_container(id: Uuid) -> Result<(), ServerFnError> {
         .get_project(id)
         .await
         .ok_or(ServerFnError::new("Not project with given id"))?;
-    if let ProjectType::Container(container) = &project.project_type {
+    if let ProjectType::Container {
+        primary_container: container,
+        support_containers,
+        tokens,
+        exposed_ports,
+    } = &project.project_type
+    {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             container
                 .stop(&docker_api::opts::ContainerStopOpts::builder().build())
@@ -110,7 +135,13 @@ pub async fn start_container(id: Uuid) -> Result<(), ServerFnError> {
         .get_project(id)
         .await
         .ok_or(ServerFnError::new("Not project with given id"))?;
-    if let ProjectType::Container(container) = &project.project_type {
+    if let ProjectType::Container {
+        primary_container: container,
+        support_containers,
+        tokens,
+        exposed_ports,
+    } = &project.project_type
+    {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
             container
                 .start()
@@ -201,6 +232,63 @@ pub async fn add_project_domain(id: Uuid, domain: String) -> Result<(), ServerFn
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SupportContainerFields {
+    pub name: String,
+    pub image: String,
+    pub env_vars: Option<HashMap<String, EnvironmentVar>>,
+}
+
+#[server(SetSupportContainers)]
+pub async fn set_support_containers(
+    id: Uuid,
+    support_containers: Option<HashMap<String, SupportContainerFields>>,
+) -> Result<(), ServerFnError> {
+    user()?;
+
+    let mut project_context = project_context()?;
+
+    let mut project = project_context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?
+        .as_ref()
+        .clone();
+
+    if let ProjectType::Container {
+        support_containers: support_c,
+        ..
+    } = &mut project.project_type
+    {
+        *support_c = HashMap::new();
+        if let Some(support_containers_new) = support_containers {
+            for container in support_containers_new.into_values() {
+                support_c.insert(
+                    container.name,
+                    SupportContainer {
+                        image: container.image,
+                        container: Container {
+                            env_vars: container
+                                .env_vars
+                                .map(|ev| ev.into_values().collect::<Vec<_>>().into())
+                                .unwrap_or_default(),
+                            status: crate::common::ContainerStatus::None,
+                        },
+                    },
+                );
+            }
+
+            project_context
+                .update_project(project.id, Arc::new(project))
+                .await
+                .map_err(ServerFnError::new)?;
+        }
+    } else {
+        return Err(ServerFnError::new("project not container"));
+    }
+    Ok(())
+}
+
 #[server(UpdateProjectPort)]
 pub async fn update_project_port(id: Uuid, port: u16) -> Result<(), ServerFnError> {
     user()?;
@@ -245,16 +333,31 @@ pub async fn update_project_image(
         .await
         .ok_or(ServerFnError::new("Not project with given id"))?;
 
-    let tokens = project
-        .project_type
-        .as_container()
-        .map(|c| c.tokens.clone());
+    let tokens = if let ProjectType::Container {
+        primary_container,
+        support_containers,
+        tokens,
+        exposed_ports,
+    } = &project.project_type
+    {
+        Some(tokens.clone())
+    } else {
+        None
+    };
 
     let new_project = Project {
-        project_type: ProjectType::Container(Container {
-            env_vars: env_vars
-                .map(|ev| ev.into_values().collect::<Vec<_>>().into())
-                .unwrap_or_default(),
+        project_type: ProjectType::Container {
+            support_containers: if let ProjectType::Container {
+                primary_container,
+                support_containers,
+                tokens,
+                exposed_ports,
+            } = &project.project_type
+            {
+                support_containers.clone()
+            } else {
+                HashMap::new()
+            },
             exposed_ports: exposed_ports
                 .map(|e| {
                     e.into_values()
@@ -266,8 +369,14 @@ pub async fn update_project_image(
                 })
                 .unwrap_or_default(),
             tokens: tokens.unwrap_or_default(),
-            status: crate::common::ContainerStatus::None,
-        }),
+            primary_container: Container {
+                env_vars: env_vars
+                    .map(|ev| ev.into_values().collect::<Vec<_>>().into())
+                    .unwrap_or_default(),
+
+                status: crate::common::ContainerStatus::None,
+            },
+        },
         ..project.as_ref().clone()
     };
 
@@ -290,7 +399,13 @@ pub async fn delete_project(id: Uuid) -> Result<(), ServerFnError> {
         .await
         .ok_or(ServerFnError::new("Not project with given id"))?;
 
-    if let ProjectType::Container(container) = &project.project_type {
+    if let ProjectType::Container {
+        primary_container: container,
+        support_containers,
+        tokens,
+        exposed_ports,
+    } = &project.project_type
+    {
         if let Some(container) = container.status.as_running() {
             use docker_api::opts::{ContainerRemoveOpts, ContainerStopOpts};
 
@@ -333,9 +448,19 @@ pub async fn update_project_name_token(
             };
             ProjectType::PortForward(port)
         }
-        ProjectType::Container(mut container) => {
-            container.tokens = tokens.unwrap_or_default();
-            ProjectType::Container(container)
+        ProjectType::Container {
+            primary_container: container,
+            support_containers,
+            tokens: old_tokens,
+            exposed_ports,
+        } => {
+            // container.tokens = tokens.unwrap_or_default();
+            ProjectType::Container {
+                primary_container: container,
+                support_containers,
+                tokens: tokens.unwrap_or_default(),
+                exposed_ports,
+            }
         }
     };
     let new_project = Project {

@@ -90,8 +90,11 @@ pub fn ProjectSettings() -> impl IntoView {
                     Some(project_type) => {
                         match project_type {
                             ProjectType::PortForward(_) => view! {}.into_view(),
-                            ProjectType::Container(container) => {
-                                let (tokens, set_tokens) = create_signal(container.tokens);
+                            ProjectType::Container{
+                                tokens,
+                                ..
+                            } => {
+                                let (tokens, set_tokens) = create_signal(tokens);
                                 view! {
                                     <div class="text-md">"Tokens"</div>
                                     <div class="">

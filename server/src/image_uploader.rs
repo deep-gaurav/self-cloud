@@ -47,8 +47,8 @@ pub async fn push_image(
                         .await
                         .ok_or(anyhow::anyhow!("project with given id not present"))?;
 
-                    if let ProjectType::Container(container) = &project.project_type {
-                        if let Some(token) = container.tokens.get(&token) {
+                    if let ProjectType::Container { tokens, .. } = &project.project_type {
+                        if let Some(token) = tokens.get(&token) {
                             if let Some(expiry) = &token.expiry {
                                 let current_date = chrono::Utc::now().naive_utc().date();
                                 if &current_date > expiry {
@@ -124,7 +124,11 @@ pub async fn push_image(
                     let project = context.get_project(project_id).await;
                     if let Some(project) = project {
                         let mut proj = project.as_ref().clone();
-                        if let ProjectType::Container(container) = &mut proj.project_type {
+                        if let ProjectType::Container {
+                            primary_container: container,
+                            ..
+                        } = &mut proj.project_type
+                        {
                             container.status = ContainerStatus::None;
                         }
 

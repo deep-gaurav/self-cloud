@@ -38,7 +38,7 @@ pub async fn container_attach_ws(
             .ok_or((StatusCode::BAD_REQUEST, "Project doesnt exist".to_string()))?;
         let container = project
             .project_type
-            .as_container()
+            .try_get_primary()
             .ok_or((StatusCode::BAD_REQUEST, "Project not container".to_string()))?
             .status
             .as_running()

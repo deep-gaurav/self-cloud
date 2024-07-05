@@ -1,10 +1,15 @@
 use std::sync::Arc;
 
 use app::{
-    common::{get_docker, ContainerStatus, Project, ProjectType},
+    common::{get_docker, ContainerStatus, Project, ProjectType, SupportContainer},
     context::ProjectContext,
 };
-use docker_api::opts::{ContainerCreateOpts, ContainerRemoveOpts, ContainerStopOpts, PublishPort};
+use docker_api::{
+    opts::{
+        ContainerCreateOpts, ContainerRemoveOpts, ContainerStopOpts, NetworkCreateOpts, PublishPort,
+    },
+    Container, Docker, Id,
+};
 use leptos::logging::warn;
 use pingora::{
     server::ShutdownWatch,
@@ -12,6 +17,7 @@ use pingora::{
     upstreams::peer::HttpPeer,
 };
 use tracing::info;
+use uuid::Uuid;
 
 pub struct ContainerManager {
     project_context: ProjectContext,
@@ -38,10 +44,13 @@ impl BackgroundService for ContainerManager {
                     tracing::debug!("Container tick");
                     let  peers = self.project_context.get_projects().await;
                     for project in peers.iter() {
-                        if let ProjectType::Container(container) = &project.project_type {
+                        if let ProjectType::Container{
+                            primary_container: container,
+                            ..
+                        } = &project.project_type {
                             if container.status.is_none(){
                                 let mut project_t = project.clone().as_ref().clone();
-                                if let ProjectType::Container( container) = &mut project_t.project_type{
+                                if let ProjectType::Container{ primary_container: container, ..} = &mut project_t.project_type{
                                     container.status = ContainerStatus::Creating;
                                 }
                                 if let Err(err) =  self.project_context.clone().update_project(project_t.id, Arc::new(project_t)).await{
@@ -57,7 +66,7 @@ impl BackgroundService for ContainerManager {
 
                                         {
                                             let mut new_p = project.as_ref().clone();
-                                            if let ProjectType::Container(container) = &mut new_p.project_type {
+                                            if let ProjectType::Container{primary_container: container, ..} = &mut new_p.project_type {
                                                 container.status = ContainerStatus::Failed;
                                             }
                                             if let Err(err) =  context.update_project(new_p.id, Arc::new(new_p)).await {
@@ -80,13 +89,40 @@ async fn run_and_set_container(
     project: Arc<Project>,
     mut project_context: ProjectContext,
 ) -> anyhow::Result<()> {
-    if let ProjectType::Container(container) = &project.project_type {
+    if let ProjectType::Container {
+        primary_container: container,
+        exposed_ports,
+        support_containers,
+        ..
+    } = &project.project_type
+    {
         if let ContainerStatus::Running(container) = &container.status {
             container
                 .stop(&ContainerStopOpts::builder().build())
                 .await?;
         }
         let docker = get_docker();
+        let network = get_network(&docker, project.id).await?;
+
+        for (name, support_container) in support_containers {
+            let container =
+                run_support_container(&docker, project.id, name, support_container, &network)
+                    .await?;
+            let mut proj = project.as_ref().clone();
+            if let ProjectType::Container {
+                support_containers, ..
+            } = &mut proj.project_type
+            {
+                let mut new_support_container = support_container.clone();
+                new_support_container.container.status =
+                    ContainerStatus::Running(Arc::new(container));
+                support_containers.insert(name.clone(), new_support_container);
+            }
+            project_context
+                .update_project(proj.id, Arc::new(proj))
+                .await?;
+        }
+
         let image_id = format!("selfcloud_image_{}:latest", project.id.to_string());
         info!("Running Image id {image_id}");
         let image = docker.images().get(image_id);
@@ -135,6 +171,7 @@ async fn run_and_set_container(
                 info!("Creating new container");
 
                 let container = container.clone();
+                let exposed_ports = exposed_ports.clone();
                 let mut container_fut = tokio::spawn(async move {
                     let docker = get_docker();
                     let mut builder = ContainerCreateOpts::builder()
@@ -148,9 +185,10 @@ async fn run_and_set_container(
                                 .iter()
                                 .map(|ev| format!("{}={}", ev.key, ev.val)),
                         )
+                        .network_mode(network)
                         .publish_all_ports();
 
-                    for expose_port in container.exposed_ports.iter() {
+                    for expose_port in exposed_ports.iter() {
                         builder = builder.publish(PublishPort::tcp(expose_port.port as u32));
                     }
                     docker.containers().create(&builder.build()).await
@@ -191,11 +229,16 @@ async fn run_and_set_container(
 
                 {
                     let mut project = project.as_ref().clone();
-                    if let ProjectType::Container(cont) = &mut project.project_type {
+                    if let ProjectType::Container {
+                        primary_container: cont,
+                        exposed_ports,
+                        ..
+                    } = &mut project.project_type
+                    {
                         if let Some(network) = inspect.network_settings {
                             if let Some(ports) = network.ports {
                                 tracing::info!("Container running with ports {ports:#?}");
-                                for port in cont.exposed_ports.iter_mut() {
+                                for port in exposed_ports.iter_mut() {
                                     let port_q = format!("{}/tcp", port.port);
                                     let exposed_port = ports.get(&port_q);
                                     if let Some(host_port) = exposed_port
@@ -232,4 +275,64 @@ async fn run_and_set_container(
     }
 
     Ok(())
+}
+
+async fn get_network(docker: &Docker, project_id: Uuid) -> anyhow::Result<Id> {
+    let networks = docker.networks();
+    let network_id = format!("selfcloud_network_{}", project_id);
+    let network = networks.get(&network_id);
+    if let Ok(inspect_network) = network.inspect().await {
+        return Ok(network.id().clone());
+    } else {
+        let new_network = networks
+            .create(&NetworkCreateOpts::builder(&network_id).build())
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to create network {e:?}"))?;
+        return Ok(network.id().clone());
+    }
+}
+
+async fn run_support_container(
+    docker: &Docker,
+    project_id: Uuid,
+    name: &str,
+    support_container: &SupportContainer,
+    network_id: &Id,
+) -> anyhow::Result<Container> {
+    let container_id = format!("selfcloud_supportcontainer_{}_{}", project_id, name);
+    let docker_container = docker.containers().get(&container_id);
+    if let Ok(inspect) = docker_container.inspect().await {
+        if inspect.state.and_then(|s| s.running).unwrap_or(false) {
+            return Ok(docker.containers().get(&container_id));
+        } else {
+            if let Ok(started) = docker.containers().get(&container_id).start().await {
+                return Ok(docker.containers().get(&container_id));
+            }
+            if let Ok(started) = docker.containers().get(&container_id).unpause().await {
+                return Ok(docker.containers().get(&container_id));
+            }
+        }
+    }
+    let _ = docker
+        .containers()
+        .get(&container_id)
+        .remove(&ContainerRemoveOpts::builder().force(true).build())
+        .await;
+
+    let opts = ContainerCreateOpts::builder()
+        .image(&support_container.image)
+        .name(container_id)
+        .network_mode(network_id)
+        .env(
+            support_container
+                .container
+                .env_vars
+                .iter()
+                .map(|ev| format!("{}={}", ev.key, ev.val)),
+        )
+        .build();
+    let new_container = docker.containers().create(&opts).await?;
+    new_container.start().await?;
+
+    Ok(new_container)
 }

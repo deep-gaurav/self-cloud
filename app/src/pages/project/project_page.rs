@@ -121,6 +121,11 @@ pub fn ProjectPage() -> impl IntoView {
                                             name: "Container",
                                             path: "/container",
                                         });
+                                    pages
+                                    .push(ChildMenus {
+                                            name: "Services",
+                                            path: "/services",
+                                        });
                                 }
                                 pages
                                     .push(ChildMenus {
@@ -223,13 +228,17 @@ pub fn GeneralSettings() -> impl IntoView {
                     if p.is_container() {
                         None
                     } else {
-                        Some(ProjectType::Container(Container {
+                        Some(ProjectType::Container {
                             exposed_ports: vec![].into(),
-                            #[cfg(feature = "ssr")]
-                            status: crate::common::ContainerStatus::None,
+                            support_containers: HashMap::new(),
                             tokens: HashMap::new(),
-                            env_vars: vec![].into(),
-                        }))
+
+                            primary_container: Container {
+                                #[cfg(feature = "ssr")]
+                                status: crate::common::ContainerStatus::None,
+                                env_vars: vec![].into(),
+                            },
+                        })
                     }
                 })
             }),
@@ -348,10 +357,15 @@ pub fn GeneralSettings() -> impl IntoView {
                                 }
                                     .into_view()
                             }
-                            ProjectType::Container(container) => {
+                            ProjectType::Container {
+                                primary_container: container,
+                                exposed_ports,
+                                tokens,
+                                ..
+                            } => {
                                 let (exposed_ports, set_exposed_ports) = create_signal(
-                                    container
-                                        .exposed_ports
+
+                                        exposed_ports
                                         .into_iter()
                                         .map(|p| (random_ascii_string(8), p))
                                         .collect::<HashMap<String, ExposedPort>>(),

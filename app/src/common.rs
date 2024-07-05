@@ -18,7 +18,19 @@ pub struct Project {
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum ProjectType {
     PortForward(PortForward),
-    Container(Container),
+    Container {
+        primary_container: Container,
+        support_containers: HashMap<String, SupportContainer>,
+
+        tokens: HashMap<String, Token>,
+        exposed_ports: smallvec::SmallVec<[ExposedPort; 4]>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct SupportContainer {
+    pub image: String,
+    pub container: Container,
 }
 
 #[derive(Serialize, Clone)]
@@ -87,19 +99,23 @@ impl ProjectType {
     /// [`Container`]: ProjectType::Container
     #[must_use]
     pub fn is_container(&self) -> bool {
-        matches!(self, Self::Container(..))
+        matches!(self, Self::Container { .. })
     }
 
-    pub fn as_container(&self) -> Option<&Container> {
-        if let Self::Container(v) = self {
-            Some(v)
-        } else {
-            None
+    pub fn try_get_primary(&self) -> Option<&Container> {
+        match &self {
+            ProjectType::PortForward(_) => None,
+            ProjectType::Container {
+                primary_container,
+                support_containers,
+                tokens,
+                exposed_ports,
+            } => Some(primary_container),
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct EnvironmentVar {
     pub key: String,
     pub val: String,
@@ -107,9 +123,7 @@ pub struct EnvironmentVar {
 
 #[derive(Serialize, Clone)]
 pub struct Container {
-    pub exposed_ports: smallvec::SmallVec<[ExposedPort; 4]>,
     pub env_vars: smallvec::SmallVec<[EnvironmentVar; 4]>,
-    pub tokens: HashMap<String, Token>,
     #[cfg(feature = "ssr")]
     #[serde(skip)]
     pub status: ContainerStatus,
@@ -219,7 +233,7 @@ impl<'de> Deserialize<'de> for ExposedPort {
 
 impl PartialEq for Container {
     fn eq(&self, other: &Self) -> bool {
-        self.exposed_ports == other.exposed_ports
+        self.env_vars == other.env_vars
     }
 }
 
@@ -230,8 +244,8 @@ impl<'de> Deserialize<'de> for Container {
     {
         #[derive(Clone, Deserialize)]
         pub struct TmpContainer {
-            pub exposed_ports: smallvec::SmallVec<[ExposedPort; 4]>,
-            pub tokens: HashMap<String, Token>,
+            // pub exposed_ports: smallvec::SmallVec<[ExposedPort; 4]>,
+            // pub tokens: HashMap<String, Token>,
             pub env_vars: smallvec::SmallVec<[EnvironmentVar; 4]>,
         }
 
@@ -240,8 +254,8 @@ impl<'de> Deserialize<'de> for Container {
         #[cfg(not(feature = "ssr"))]
         {
             Ok(Container {
-                exposed_ports: d.exposed_ports,
-                tokens: d.tokens,
+                // exposed_ports: d.exposed_ports,
+                // tokens: d.tokens,
                 env_vars: d.env_vars,
             })
         }
@@ -249,9 +263,9 @@ impl<'de> Deserialize<'de> for Container {
         #[cfg(feature = "ssr")]
         {
             Ok(Container {
-                exposed_ports: d.exposed_ports,
+                // exposed_ports: d.exposed_ports,
                 status: ContainerStatus::None,
-                tokens: d.tokens,
+                // tokens: d.tokens,
                 env_vars: d.env_vars,
             })
         }

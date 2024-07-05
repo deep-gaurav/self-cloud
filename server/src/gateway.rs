@@ -195,9 +195,13 @@ impl ProxyHttp for Gateway {
                             app::common::ProjectType::PortForward(port) => {
                                 return Ok(Box::new(port.peer.as_ref().clone()));
                             }
-                            app::common::ProjectType::Container(container) => {
+                            app::common::ProjectType::Container {
+                                primary_container: container,
+                                exposed_ports,
+                                ..
+                            } => {
                                 if container.status.is_running() {
-                                    let port = container.exposed_ports.iter().find(|cont| {
+                                    let port = exposed_ports.iter().find(|cont| {
                                         cont.domains.iter().any(|dom| &dom.name == host)
                                     });
                                     if let Some(port) = port {
