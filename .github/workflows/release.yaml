@@ -33,11 +33,14 @@ jobs:
 
     - name: Build
       run: cargo leptos build --release
-      
+
+    - name: Compress site
+      run: tar -cvf site.tar target/site
+
     - name: Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
             target/binrelease/server
-            target/site
+            site.tar
