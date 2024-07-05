@@ -233,11 +233,18 @@ pub fn ProjectSettings() -> impl IntoView {
                             delete_project_action.dispatch(DeleteProject{id});
                         }
                     >
-                        "Confirm Delete"
+                        {
+                            move || if delete_project_action.pending().get(){
+                                "Deleting.."
+                            }else{
+                                "Confirm Delete"
+                            }
+                        }
                     </button>
 
                     <button
                         class="p-2 rounded border px-6 mt-5"
+                        disabled=delete_project_action.pending()
                         on:click=move |_| {
                             if let Some(dialog) = confirm_delete_dialog.get_untracked(){
                                 _ = dialog.close();
