@@ -115,6 +115,15 @@ impl ProjectContext {
         Ok(())
     }
 
+    pub async fn remove_project(&mut self, id: Uuid) -> anyhow::Result<()> {
+        {
+            let mut projects = self.projects.write().await;
+            projects.remove(&id);
+        }
+        self.save_to_config().await?;
+        Ok(())
+    }
+
     pub async fn add_project_domain(
         &mut self,
         project: Arc<Project>,

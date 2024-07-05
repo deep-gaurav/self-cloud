@@ -1,6 +1,6 @@
 use leptos::{
-    component, create_effect, create_memo, create_server_action, expect_context, view, IntoView,
-    Resource, ServerFnError, SignalGet, Transition,
+    component, create_effect, create_memo, create_node_ref, create_server_action, expect_context,
+    view, IntoView, Resource, ServerFnError, SignalGet, Transition,
 };
 use leptos_toaster::{Toast, ToastId, ToastVariant, Toasts};
 use tracing::info;
@@ -12,6 +12,7 @@ use crate::{common::Project, components::input_field::InputField};
 use leptos::DynAttrs;
 use leptos_router::ActionForm;
 
+use crate::api::DeleteProject;
 use crate::common::Token;
 use crate::utils::random_ascii_string;
 use leptos::SignalGetUntracked;
@@ -47,6 +48,30 @@ pub fn ProjectSettings() -> impl IntoView {
             project.refetch();
         }
     });
+
+    let confirm_delete_dialog = create_node_ref::<leptos::html::Dialog>();
+
+    let delete_project_action = create_server_action::<DeleteProject>();
+    let navigate = leptos_router::use_navigate();
+
+    create_effect(move |_| {
+        if delete_project_action.version().get() > 0 {
+            let toast_id = ToastId::new();
+            toast_context.toast(
+                view! {
+                    <Toast
+                        toast_id
+                        variant=ToastVariant::Success
+                        title=view! { "Project Deleted" }.into_view()
+                    />
+                },
+                Some(toast_id),
+                None,
+            );
+            navigate("/", Default::default());
+        }
+    });
+
     view! {
         <Transition>
             <ActionForm action=update_project_action>
@@ -181,6 +206,48 @@ pub fn ProjectSettings() -> impl IntoView {
 
             </ActionForm>
 
+            <button
+                class="p-2 rounded bg-red-700 px-6 text-white mt-5"
+                on:click=move |_| {
+                    if let Some(dialog) = confirm_delete_dialog.get_untracked(){
+                        _ = dialog.show_modal();
+                    }
+                }
+            >
+
+                "Delete Project"
+            </button>
+
+            <dialog _ref=confirm_delete_dialog
+                class="backdrop:bg-black/50 dark:backdrop:bg-white/40 bg-white dark:bg-black text-black dark:text-white p-4 rounded-md"
+            >
+                <div>
+                    "Are you sure you want to delete Project"
+                </div>
+
+                <div class="flex gap-2">
+                    <button
+                        class="p-2 rounded bg-red-700 px-6 text-white mt-5 disabled:bg-slate-700"
+                        disabled=delete_project_action.pending()
+                        on:click=move |_| {
+                            delete_project_action.dispatch(DeleteProject{id});
+                        }
+                    >
+                        "Confirm Delete"
+                    </button>
+
+                    <button
+                        class="p-2 rounded border px-6 mt-5"
+                        on:click=move |_| {
+                            if let Some(dialog) = confirm_delete_dialog.get_untracked(){
+                                _ = dialog.close();
+                            }
+                        }
+                    >
+                        "No, Cancel Delete"
+                    </button>
+                </div>
+            </dialog>
         </Transition>
     }
 }

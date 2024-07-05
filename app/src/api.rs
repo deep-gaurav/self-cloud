@@ -274,6 +274,39 @@ pub async fn update_project_image(
     Ok(())
 }
 
+#[server(DeleteProject)]
+pub async fn delete_project(id: Uuid) -> Result<(), ServerFnError> {
+    user()?;
+
+    let mut project_context = project_context()?;
+
+    let project = project_context
+        .get_project(id)
+        .await
+        .ok_or(ServerFnError::new("Not project with given id"))?;
+
+    if let ProjectType::Container(container) = &project.project_type {
+        if let Some(container) = container.status.as_running() {
+            use docker_api::opts::{ContainerRemoveOpts, ContainerStopOpts};
+
+            container
+                .stop(&ContainerStopOpts::builder().build())
+                .await
+                .map_err(ServerFnError::new)?;
+            container
+                .remove(&ContainerRemoveOpts::builder().force(true).build())
+                .await
+                .map_err(ServerFnError::new)?;
+        }
+    }
+
+    project_context
+        .remove_project(id)
+        .await
+        .map_err(ServerFnError::new)?;
+    Ok(())
+}
+
 #[server(UpdateProjectNameToken)]
 pub async fn update_project_name_token(
     id: Uuid,
