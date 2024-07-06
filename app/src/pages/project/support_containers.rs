@@ -107,20 +107,15 @@ pub fn SupportContainers() -> impl IntoView {
                                             children=move |cont| {
                                                 use leptos::store_value;
                                                 let name = store_value(cont.0.clone());
-                                                let (env_vars, set_env_vars) = create_signal(
-                                                    {
-                                                        let mut map = Vec::with_capacity(cont.1.container.env_vars.len());
-
-                                                    for var in cont
-                                                    .1
-                                                    .container
-                                                    .env_vars
-                                                    .into_iter() {
-                                                        map.push((map.len(),var));
+                                                let (env_vars, set_env_vars) = create_signal({
+                                                    let mut map = Vec::with_capacity(
+                                                        cont.1.container.env_vars.len(),
+                                                    );
+                                                    for var in cont.1.container.env_vars.into_iter() {
+                                                        map.push((map.len(), var));
                                                     }
                                                     map
-                                                }
-                                                );
+                                                });
                                                 view! {
                                                     <div class="border p-4 dark:bg-white/10 bg-black/10 dark:border-white/20 rounded-md">
 
@@ -228,7 +223,10 @@ pub fn SupportContainers() -> impl IntoView {
                                                                         val: "".to_string(),
                                                                     };
                                                                     let mut vars = env_vars.get_untracked();
-                                                                    vars.push((vars.last().map(|p|p.0).unwrap_or_default()+1, new_var));
+                                                                    vars.push((
+                                                                        vars.last().map(|p| p.0).unwrap_or_default() + 1,
+                                                                        new_var,
+                                                                    ));
                                                                     set_env_vars.set(vars);
                                                                 }
                                                             >
