@@ -75,7 +75,7 @@ pub fn ProjectSettings() -> impl IntoView {
     view! {
         <Transition>
             <ActionForm action=update_project_action>
-                <input type="hidden" name="id" value=id.to_string() />
+                <input type="hidden" name="id" value=id.to_string()/>
                 <div class="text-xl " class=("abc", move || true)>
                     "Project Name"
                 </div>
@@ -90,10 +90,7 @@ pub fn ProjectSettings() -> impl IntoView {
                     Some(project_type) => {
                         match project_type {
                             ProjectType::PortForward(_) => view! {}.into_view(),
-                            ProjectType::Container{
-                                tokens,
-                                ..
-                            } => {
+                            ProjectType::Container { tokens, .. } => {
                                 let (tokens, set_tokens) = create_signal(tokens);
                                 view! {
                                     <div class="text-md">"Tokens"</div>
@@ -200,7 +197,7 @@ pub fn ProjectSettings() -> impl IntoView {
                     None => view! {}.into_view(),
                 }}
 
-                <div class="h-4" />
+                <div class="h-4"></div>
                 <input
                     type="submit"
                     value="Update"
@@ -212,7 +209,7 @@ pub fn ProjectSettings() -> impl IntoView {
             <button
                 class="p-2 rounded bg-red-700 px-6 text-white mt-5"
                 on:click=move |_| {
-                    if let Some(dialog) = confirm_delete_dialog.get_untracked(){
+                    if let Some(dialog) = confirm_delete_dialog.get_untracked() {
                         _ = dialog.show_modal();
                     }
                 }
@@ -221,39 +218,41 @@ pub fn ProjectSettings() -> impl IntoView {
                 "Delete Project"
             </button>
 
-            <dialog _ref=confirm_delete_dialog
+            <dialog
+                _ref=confirm_delete_dialog
                 class="backdrop:bg-black/50 dark:backdrop:bg-white/40 bg-white dark:bg-black text-black dark:text-white p-4 rounded-md"
             >
-                <div>
-                    "Are you sure you want to delete Project"
-                </div>
+                <div>"Are you sure you want to delete Project"</div>
 
                 <div class="flex gap-2">
                     <button
                         class="p-2 rounded bg-red-700 px-6 text-white mt-5 disabled:bg-slate-700"
                         disabled=delete_project_action.pending()
                         on:click=move |_| {
-                            delete_project_action.dispatch(DeleteProject{id});
+                            delete_project_action.dispatch(DeleteProject { id });
                         }
                     >
-                        {
-                            move || if delete_project_action.pending().get(){
+
+                        {move || {
+                            if delete_project_action.pending().get() {
                                 "Deleting.."
-                            }else{
+                            } else {
                                 "Confirm Delete"
                             }
-                        }
+                        }}
+
                     </button>
 
                     <button
                         class="p-2 rounded border px-6 mt-5"
                         disabled=delete_project_action.pending()
                         on:click=move |_| {
-                            if let Some(dialog) = confirm_delete_dialog.get_untracked(){
+                            if let Some(dialog) = confirm_delete_dialog.get_untracked() {
                                 _ = dialog.close();
                             }
                         }
                     >
+
                         "No, Cancel Delete"
                     </button>
                 </div>

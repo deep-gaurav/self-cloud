@@ -323,6 +323,7 @@ async fn run_support_container(
         .image(&support_container.image)
         .name(container_id)
         .network_mode(network_id)
+        .hostname(name)
         .env(
             support_container
                 .container

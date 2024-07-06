@@ -68,6 +68,8 @@ serde_path_to_error.workspace = true
 smallvec.workspace = true
 
 leptos_toaster.workspace = true
+slotmap.workspace = true
+
 
 [features]
 default = []

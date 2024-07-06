@@ -31,6 +31,7 @@ use leptos_toaster::ToastVariant;
 use leptos_toaster::Toasts;
 use leptos_use::use_interval_fn;
 use leptos_use::utils::Pausable;
+use slotmap::SlotMap;
 use uuid::Uuid;
 
 use crate::api::get_project;
@@ -122,7 +123,7 @@ pub fn ProjectPage() -> impl IntoView {
                                             path: "/container",
                                         });
                                     pages
-                                    .push(ChildMenus {
+                                        .push(ChildMenus {
                                             name: "Services",
                                             path: "/services",
                                         });
@@ -363,22 +364,20 @@ pub fn GeneralSettings() -> impl IntoView {
                                 tokens,
                                 ..
                             } => {
-                                let (exposed_ports, set_exposed_ports) = create_signal(
-
-                                        exposed_ports
-                                        .into_iter()
-                                        .map(|p| (random_ascii_string(8), p))
-                                        .collect::<HashMap<String, ExposedPort>>(),
-                                );
-
-                                let (env_vars, set_env_vars) = create_signal(
-                                    container
-                                        .env_vars
-                                        .into_iter()
-                                        .map(|p| (random_ascii_string(8), p))
-                                        .collect::<HashMap<String, EnvironmentVar>>(),
-                                );
-
+                                let (exposed_ports, set_exposed_ports) = create_signal({
+                                    let mut map = vec![];
+                                    for port in exposed_ports.into_iter() {
+                                        map.push((map.len(), port));
+                                    }
+                                    map
+                                });
+                                let (env_vars, set_env_vars) = create_signal({
+                                    let mut map = vec![];
+                                    for env_var in container.env_vars.into_iter() {
+                                        map.push(((map.len(), env_var)))
+                                    }
+                                    map
+                                });
                                 view! {
                                     <ActionForm action=update_image_action>
                                         <input
@@ -388,6 +387,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                                 project.get().and_then(|p| p.ok()).map(|p| p.id.to_string())
                                             }
                                         />
+
                                         // Exposed Port
                                         <div class="h-4"></div>
 
@@ -396,11 +396,8 @@ pub fn GeneralSettings() -> impl IntoView {
                                         <div class="">
                                             <For
                                                 each=move || exposed_ports.get().into_iter()
-                                                key=|p| p.0.clone()
+                                                key=|p| p.0
                                                 children=move |(index, exposed_port)| {
-                                                    let i2 = index.clone();
-                                                    let i3 = index.clone();
-                                                    let i4 = index.clone();
                                                     view! {
                                                         <div class="flex flex-col gap-4 p-2 border dark:border-white/20 m-2 rounded">
                                                             <div class="flex gap-4 flex-wrap">
@@ -413,7 +410,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                                                         prop:value=exposed_port.port
                                                                         type="number"
                                                                         id="port"
-                                                                        name=format!("exposed_ports[{i2}][port]")
+                                                                        name=format!("exposed_ports[{index}][port]")
                                                                         required
                                                                         class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                     />
@@ -426,7 +423,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                                                     </label>
 
                                                                     <select
-                                                                        name=format!("exposed_ports[{i3}][domains][1][name]")
+                                                                        name=format!("exposed_ports[{index}][domains][1][name]")
                                                                         class="p-2 bg-white border rounded-md dark:bg-white/10 dark:border-white/5"
                                                                     >
 
@@ -457,10 +454,11 @@ pub fn GeneralSettings() -> impl IntoView {
                                                                 </div>
 
                                                                 <button
+                                                                    type="button"
                                                                     class="p-2 rounded bg-red-700 px-6 text-white mt-5"
                                                                     on:click=move |_| {
                                                                         let mut exposed_ports = exposed_ports.get_untracked();
-                                                                        exposed_ports.remove(&i4);
+                                                                        exposed_ports.remove(index);
                                                                         set_exposed_ports.set(exposed_ports)
                                                                     }
                                                                 >
@@ -484,7 +482,11 @@ pub fn GeneralSettings() -> impl IntoView {
                                                         peer: unimplemented!("Cant create new exposed port in ssr"),
                                                     };
                                                     let mut ports = exposed_ports.get_untracked();
-                                                    ports.insert(random_ascii_string(8), new_port);
+                                                    ports
+                                                        .push((
+                                                            ports.last().map(|p| p.0).unwrap_or_default() + 1,
+                                                            new_port,
+                                                        ));
                                                     set_exposed_ports.set(ports);
                                                 }
                                             >
@@ -502,11 +504,8 @@ pub fn GeneralSettings() -> impl IntoView {
                                         <div class="">
                                             <For
                                                 each=move || env_vars.get().into_iter()
-                                                key=|p| p.0.clone()
+                                                key=|p| p.0
                                                 children=move |(index, environment_var)| {
-                                                    use leptos::store_value;
-
-                                                    let index = store_value(index);
                                                     view! {
                                                         <div class="flex flex-col gap-4 p-2 border dark:border-white/20 m-2 rounded">
                                                             <div class="flex gap-4 flex-wrap">
@@ -519,7 +518,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                                                         prop:value=environment_var.key
                                                                         type="text"
                                                                         id="key"
-                                                                        name=format!("env_vars[{}][key]", index.get_value())
+                                                                        name=format!("env_vars[{}][key]", index)
                                                                         required
                                                                         class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                     />
@@ -535,17 +534,18 @@ pub fn GeneralSettings() -> impl IntoView {
                                                                         prop:value=environment_var.val
                                                                         type="text"
                                                                         id="val"
-                                                                        name=format!("env_vars[{}][val]", index.get_value())
+                                                                        name=format!("env_vars[{}][val]", index)
                                                                         required
                                                                         class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                     />
                                                                 </div>
 
                                                                 <button
+                                                                    type="button"
                                                                     class="p-2 rounded bg-red-700 px-6 text-white mt-5"
                                                                     on:click=move |_| {
                                                                         let mut env_vars = env_vars.get_untracked();
-                                                                        env_vars.remove(&index.get_value());
+                                                                        env_vars.remove(index);
                                                                         set_env_vars.set(env_vars)
                                                                     }
                                                                 >
@@ -564,10 +564,13 @@ pub fn GeneralSettings() -> impl IntoView {
                                                 on:click=move |_| {
                                                     let new_var = EnvironmentVar {
                                                         key: "".to_string(),
-                                                        val: "".to_string()
+                                                        val: "".to_string(),
                                                     };
                                                     let mut vars = env_vars.get_untracked();
-                                                    vars.insert(random_ascii_string(8), new_var);
+                                                    vars.push((
+                                                        vars.last().map(|p| p.0).unwrap_or_default() + 1,
+                                                        new_var,
+                                                    ));
                                                     set_env_vars.set(vars);
                                                 }
                                             >
@@ -576,8 +579,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                             </button>
                                         </div>
 
-
-                                        <div class="h-4" />
+                                        <div class="h-4"></div>
                                         <input
                                             type="submit"
                                             value="Update"

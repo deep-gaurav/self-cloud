@@ -177,6 +177,7 @@ dependencies = [
  "serde_path_to_error",
  "serde_qs 0.13.0",
  "serde_urlencoded",
+ "slotmap",
  "smallvec",
  "thiserror",
  "time",

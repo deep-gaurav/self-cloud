@@ -29,23 +29,28 @@ pub fn SupportContainers() -> impl IntoView {
     let update_support_container_action = create_server_action::<SetSupportContainers>();
     view! {
         <Transition>
-            {
-                move || {
-                    let project_type = project_type.get();
-                    match project_type {
-                        Some(project_type) => match project_type {
-                            ProjectType::Container { support_containers, ..} => {
-                                let (support_containers, set_support_containers) = create_signal(support_containers);
-                                view! {
 
-                                    <input type="hidden" name="id" value=id.to_string() />
+            {move || {
+                let project_type = project_type.get();
+                match project_type {
+                    Some(project_type) => {
+                        match project_type {
+                            ProjectType::Container { support_containers, .. } => {
+                                let (support_containers, set_support_containers) = create_signal(
+                                    support_containers,
+                                );
+                                view! {
+                                    <input type="hidden" name="id" value=id.to_string()/>
                                     <div class="text-xl " class=("abc", move || true)>
                                         "Service Containers"
                                     </div>
-                                    <div class="h-2" />
+                                    <div class="h-2"></div>
                                     <div class="flex gap-2">
+
                                         {
-                                            let (new_service_name, set_new_service_name) = create_signal(String::new());
+                                            let (new_service_name, set_new_service_name) = create_signal(
+                                                String::new(),
+                                            );
                                             view! {
                                                 <input
                                                     class="p-2 border w-full rounded bg-white dark:bg-white/10 dark:border-white/5"
@@ -56,32 +61,34 @@ pub fn SupportContainers() -> impl IntoView {
                                                     }
                                                 />
 
-
                                                 <button
                                                     type="button"
                                                     class="flex-shrink-0 border p-2 px-10 rounded bg-slate-800 text-white disabled:cursor-no-drop disabled:bg-slate-200 disabled:text-black dark:disabled:bg-white/20 dark:disabled:text-white dark:border-none dark:bg-white/90 dark:text-black"
                                                     disabled=move || new_service_name.get().is_empty()
                                                     prop:disabled=move || new_service_name.get().is_empty()
-                                                    on:click=move|_|{
+                                                    on:click=move |_| {
                                                         let mut containers = support_containers.get_untracked();
-                                                        containers.insert(
-                                                            new_service_name.get_untracked(),
-                                                            SupportContainer{
-                                                                image: String::new(),
-                                                                container: Container {
-                                                                    env_vars: vec![].into(),
-                                                                    #[cfg(feature = "ssr")]
-                                                                    status: crate::common::ContainerStatus::None,
-                                                                }
-                                                            }
-                                                        );
+                                                        containers
+                                                            .insert(
+                                                                new_service_name.get_untracked(),
+                                                                SupportContainer {
+                                                                    image: String::new(),
+                                                                    container: Container {
+                                                                        env_vars: vec![].into(),
+                                                                        #[cfg(feature = "ssr")]
+                                                                        status: crate::common::ContainerStatus::None,
+                                                                    },
+                                                                },
+                                                            );
                                                         set_support_containers.set(containers);
                                                     }
                                                 >
+
                                                     "Add New"
                                                 </button>
                                             }
                                         }
+
                                     </div>
                                     <div class="h-2"></div>
                                     <ActionForm action=update_support_container_action>
@@ -95,28 +102,36 @@ pub fn SupportContainers() -> impl IntoView {
                                         />
 
                                         <For
-                                            each=move||support_containers.get().into_iter()
+                                            each=move || support_containers.get().into_iter()
                                             key=|p| p.0.clone()
-                                            children=move|cont| {
+                                            children=move |cont| {
                                                 use leptos::store_value;
-
                                                 let name = store_value(cont.0.clone());
-
-
                                                 let (env_vars, set_env_vars) = create_signal(
-                                                    cont.1.container
-                                                        .env_vars
-                                                        .into_iter()
-                                                        .map(|p| (random_ascii_string(8), p))
-                                                        .collect::<HashMap<String, EnvironmentVar>>(),
+                                                    {
+                                                        let mut map = Vec::with_capacity(cont.1.container.env_vars.len());
+
+                                                    for var in cont
+                                                    .1
+                                                    .container
+                                                    .env_vars
+                                                    .into_iter() {
+                                                        map.push((map.len(),var));
+                                                    }
+                                                    map
+                                                }
                                                 );
                                                 view! {
                                                     <div class="border p-4 dark:bg-white/10 bg-black/10 dark:border-white/20 rounded-md">
 
                                                         <div class="text-md">{name.get_value()}</div>
-                                                        <div class="h-4"/>
+                                                        <div class="h-4"></div>
                                                         <input
-                                                            name=format!("support_containers[{}][name]",name.get_value())
+                                                            name=format!(
+                                                                "support_containers[{}][name]",
+                                                                name.get_value(),
+                                                            )
+
                                                             type="hidden"
                                                             prop:value=cont.0
                                                         />
@@ -126,22 +141,22 @@ pub fn SupportContainers() -> impl IntoView {
                                                         <input
                                                             id="image"
                                                             class="p-2 border w-full rounded bg-white dark:bg-white/10 dark:border-white/5"
-                                                            name=format!("support_containers[{}][image]",name.get_value())
+                                                            name=format!(
+                                                                "support_containers[{}][image]",
+                                                                name.get_value(),
+                                                            )
+
                                                             prop:value=cont.1.image
                                                         />
                                                         <div class="h-4"></div>
-
 
                                                         <div class="text-md">"Environment Variable"</div>
 
                                                         <div class="">
                                                             <For
                                                                 each=move || env_vars.get().into_iter()
-                                                                key=|p| p.0.clone()
+                                                                key=|p| p.0
                                                                 children=move |(index, environment_var)| {
-                                                                    use leptos::store_value;
-
-                                                                    let index = store_value(index);
                                                                     view! {
                                                                         <div class="flex flex-col gap-4 p-2 border dark:border-white/20 m-2 rounded">
                                                                             <div class="flex gap-4 flex-wrap">
@@ -154,7 +169,12 @@ pub fn SupportContainers() -> impl IntoView {
                                                                                         prop:value=environment_var.key
                                                                                         type="text"
                                                                                         id="key"
-                                                                                        name=format!("support_containers[{}][env_vars][{}][key]", name.get_value(),index.get_value())
+                                                                                        name=format!(
+                                                                                            "support_containers[{}][env_vars][{}][key]",
+                                                                                            name.get_value(),
+                                                                                            index,
+                                                                                        )
+
                                                                                         required
                                                                                         class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                                     />
@@ -170,17 +190,23 @@ pub fn SupportContainers() -> impl IntoView {
                                                                                         prop:value=environment_var.val
                                                                                         type="text"
                                                                                         id="val"
-                                                                                        name=format!("support_containers[{}][env_vars][{}][val]", name.get_value(),index.get_value())
+                                                                                        name=format!(
+                                                                                            "support_containers[{}][env_vars][{}][val]",
+                                                                                            name.get_value(),
+                                                                                            index,
+                                                                                        )
+
                                                                                         required
                                                                                         class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                                     />
                                                                                 </div>
 
                                                                                 <button
+                                                                                    type="button"
                                                                                     class="p-2 rounded bg-red-700 px-6 text-white mt-5"
                                                                                     on:click=move |_| {
                                                                                         let mut env_vars = env_vars.get_untracked();
-                                                                                        env_vars.remove(&index.get_value());
+                                                                                        env_vars.remove(index);
                                                                                         set_env_vars.set(env_vars)
                                                                                     }
                                                                                 >
@@ -199,10 +225,10 @@ pub fn SupportContainers() -> impl IntoView {
                                                                 on:click=move |_| {
                                                                     let new_var = EnvironmentVar {
                                                                         key: "".to_string(),
-                                                                        val: "".to_string()
+                                                                        val: "".to_string(),
                                                                     };
                                                                     let mut vars = env_vars.get_untracked();
-                                                                    vars.insert(random_ascii_string(8), new_var);
+                                                                    vars.push((vars.last().map(|p|p.0).unwrap_or_default()+1, new_var));
                                                                     set_env_vars.set(vars);
                                                                 }
                                                             >
@@ -212,33 +238,29 @@ pub fn SupportContainers() -> impl IntoView {
                                                         </div>
 
                                                     </div>
-
                                                 }
                                             }
                                         />
 
-                                        <div class="h-4" />
+                                        <div class="h-4"></div>
 
                                         <input
                                             type="submit"
                                             value="Update"
                                             class="cursor-pointer block border p-2 px-10 rounded bg-slate-800 text-white disabled:cursor-no-drop disabled:bg-slate-200 disabled:text-black dark:disabled:bg-white/20 dark:disabled:text-white dark:border-none dark:bg-white/90 dark:text-black"
-
                                         />
 
                                     </ActionForm>
-                                }.into_view()
+                                }
+                                    .into_view()
                             }
-                            ProjectType::PortForward(_)=> view! {}.into_view()
-                        },
-                        None => {
-                            view! {}.into_view()
-                        },
+                            ProjectType::PortForward(_) => view! {}.into_view(),
+                        }
                     }
-
-
+                    None => view! {}.into_view(),
                 }
-            }
+            }}
+
         </Transition>
     }
 }
