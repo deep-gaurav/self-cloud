@@ -136,13 +136,14 @@ impl ProxyHttp for Gateway {
                                     warn!("Cant append header {err:?}")
                                 }
 
-                                if let Err(err) =
-                                    _session.write_response_header(Box::new(response)).await
+                                if let Err(err) = _session
+                                    .write_response_header(Box::new(response), false)
+                                    .await
                                 {
                                     warn!("Cant write response header {err:?}")
                                 }
 
-                                if let Err(err) = _session.write_response_body(Bytes::new()).await {
+                                if let Err(err) = _session.write_response_body(None, true).await {
                                     warn!("Cant write response body {err:?}")
                                 }
 

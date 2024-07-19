@@ -6,7 +6,7 @@ use gateway::Gateway;
 use leptos_service::LeptosService;
 use pingora::server::{configuration::Opt, Server};
 // use proxy::Gateway;
-use structopt::StructOpt;
+use clap::Parser;
 // mod proxy;
 
 mod auth;
@@ -45,7 +45,7 @@ fn main() {
     } else {
         subscriber.init();
     }
-    let opt = Some(Opt::from_args());
+    let opt = Some(Opt::parse());
     let mut my_server = Server::new(opt).unwrap();
 
     let context = ProjectContext::new_empty();

@@ -21,7 +21,7 @@ tower-http.workspace = true
 tracing.workspace = true
 once_cell.workspace = true
 
-structopt.workspace = true
+clap.workspace = true
 async-trait.workspace = true
 pingora.workspace = true
 
