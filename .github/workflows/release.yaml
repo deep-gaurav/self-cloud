@@ -32,6 +32,12 @@ jobs:
     - name: Build
       run: cargo leptos build --release
 
+
+    - name: Install cross
+      run: cargo install -f cross
+    - name: Build arm64
+      run: cross build --target aarch64-unknown-linux-gnu --package=server --bin=server --no-default-features --profile=binrelease
+
     - name: Compress site
       run: tar -cvf site.tar target/site
 
