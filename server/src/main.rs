@@ -22,7 +22,7 @@ mod tls_gen;
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
 use tls_gen::{TLSGenService, TLSState};
-use tracing::level_filters::LevelFilter;
+use tracing::{level_filters::LevelFilter, warn};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[cfg(not(target_env = "msvc"))]
@@ -39,9 +39,20 @@ fn main() {
     );
 
     if cfg!(target_os = "linux") {
-        subscriber
-            .with(tracing_journald::layer().expect("Cannot initialize journald"))
-            .init();
+        match tracing_journald::layer() {
+            Ok(journald_layer) => {
+                if let Err(err) = subscriber.with(journald_layer).try_init() {
+                    warn!("Cannot initialize tracing {err:#?}")
+                }
+            }
+
+            Err(err) => {
+                warn!("Cant get journald_layer {err:#?}");
+                if let Err(err) = subscriber.try_init() {
+                    warn!("Cannot initialize tracing {err:#?}")
+                }
+            }
+        }
     } else {
         subscriber.init();
     }
