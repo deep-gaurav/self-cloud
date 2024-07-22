@@ -54,7 +54,7 @@ jobs:
         mkdir .cargo
         echo "bin-target-triple = \"aarch64-unknown-linux-gnu\"" >> Cargo.toml
         echo "[target.aarch64-unknown-linux-gnu]" >> .cargo/config.toml
-        echo "linker = \"gcc-aarch64-linux-gnu\"" >> .cargo/config.toml
+        echo "linker = \"aarch64-linux-gnu-gcc\"" >> .cargo/config.toml
         cat .cargo/config.toml
 
     - name: Build aarch64
