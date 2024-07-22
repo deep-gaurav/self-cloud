@@ -38,22 +38,13 @@ jobs:
     - name: Install Cargo Leptos
       run: cargo install cargo-leptos
 
-    - name: Build
-      run: cargo leptos build --release
+    # - name: Build
+    #   run: cargo leptos build --release
 
-    - name: Compress site
-      run: tar -cvf site-x64.tar target/site
-    - name: Rename x64 binary
-      run: cp target/binrelease/server server-x64
-
-    - name: Save cache
-      id: cache-rust-save
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          /home/runner/.cargo
-          /home/runner/work/self-cloud/self-cloud/target
-        key: self-cloud-cache
+    # - name: Compress site
+    #   run: tar -cvf site-x64.tar target/site
+    # - name: Rename x64 binary
+    #   run: cp target/binrelease/server server-x64
 
     - name: Add aarch64
       run: rustup target add aarch64-unknown-linux-gnu
@@ -63,7 +54,7 @@ jobs:
         mkdir .cargo
         echo "bin-target-triple = \"aarch64-unknown-linux-gnu\"" >> Cargo.toml
         echo "[target.aarch64-unknown-linux-gnu]" >> .cargo/config.toml
-        echo "linker = \"aarch64-unknown-linux-gnu-gcc\"" >> .cargo/config.toml
+        echo "linker = \"gcc-aarch64-linux-gnu\"" >> .cargo/config.toml
         cat .cargo/config.toml
 
     - name: Build aarch64
@@ -87,11 +78,11 @@ jobs:
             server-arm64 \
             site-arm64
 
-    # - name: Save cache
-    #   id: cache-rust-save
-    #   uses: actions/cache/save@v4
-    #   with:
-    #     path: |
-    #       /home/runner/.cargo
-    #       /home/runner/work/self-cloud/self-cloud/target
-    #     key: self-cloud-cache
+    - name: Save cache
+      id: cache-rust-save
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          /home/runner/.cargo
+          /home/runner/work/self-cloud/self-cloud/target
+        key: self-cloud-cache
