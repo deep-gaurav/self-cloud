@@ -52,6 +52,8 @@ jobs:
     - name: Add aarch64 to Cargo.toml
       run: |
         echo "bin-target-triple = \"aarch64-unknown-linux-gnu\"" >> Cargo.toml
+        echo "[target.aarch64-unknown-linux-gnu]" >> .cargo/config.toml
+        echo "linker = \"aarch64-unknown-linux-gnu-gcc\"" >> .cargo/config.toml
 
     - name: Build aarch64
       run: cargo leptos build --release
