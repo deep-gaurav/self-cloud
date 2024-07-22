@@ -51,6 +51,7 @@ jobs:
 
     - name: Add aarch64 to Cargo.toml
       run: |
+        mkdir .cargo
         echo "bin-target-triple = \"aarch64-unknown-linux-gnu\"" >> Cargo.toml
         echo "[target.aarch64-unknown-linux-gnu]" >> .cargo/config.toml
         echo "linker = \"aarch64-unknown-linux-gnu-gcc\"" >> .cargo/config.toml
