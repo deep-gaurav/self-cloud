@@ -87,11 +87,11 @@ jobs:
             server-arm64 \
             site-arm64
 
-    - name: Save cache
-      id: cache-rust-save
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          /home/runner/.cargo
-          /home/runner/work/self-cloud/self-cloud/target
-        key: self-cloud-cache
+    # - name: Save cache
+    #   id: cache-rust-save
+    #   uses: actions/cache/save@v4
+    #   with:
+    #     path: |
+    #       /home/runner/.cargo
+    #       /home/runner/work/self-cloud/self-cloud/target
+    #     key: self-cloud-cache
