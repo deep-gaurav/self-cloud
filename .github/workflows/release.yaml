@@ -20,9 +20,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Restore cache
+    - name: Use cache
       id: cache-rust
-      uses: actions/cache/restore@v4
+      uses: actions/cache@v4
       with:
         path: |
           /home/runner/.cargo
@@ -77,12 +77,3 @@ jobs:
             site-x64.tar \
             server-arm64 \
             site-arm64.tar
-
-    - name: Save cache
-      id: cache-rust-save
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          /home/runner/.cargo
-          /home/runner/work/self-cloud/self-cloud/target
-        key: self-cloud-cache
