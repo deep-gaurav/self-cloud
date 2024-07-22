@@ -41,16 +41,25 @@ jobs:
     - name: Build
       run: cargo leptos build --release
 
+    - name: Compress site
+      run: tar -cvf site-x64.tar target/site
+    - name: Rename x64 binary
+      run: cp target/binrelease/server server-x64
 
-    - name: Install cross
-      run: cargo install -f cross
-    - name: Build arm64
-      run: LEPTOS_OUTPUT_NAME=start-axum-workspace cross build --target aarch64-unknown-linux-gnu --package=server --bin=server --no-default-features --profile=binrelease
-    - name: Rename arm64server
-      run: mv target/aarch64-unknown-linux-gnu/binrelease/server target/aarch64-unknown-linux-gnu/binrelease/server-aarch64
+    - name: Add aarch64
+      run: rustup target add aarch64-unknown-linux-gnu
+
+    - name: Add aarch64 to Cargo.toml
+      run: |
+        echo "bin-target-triple = \"aarch64-unknown-linux-gnu\"" >> Cargo.toml
+
+    - name: Build aarch64
+      run: cargo leptos build --release
 
     - name: Compress site
-      run: tar -cvf site.tar target/site
+      run: tar -cvf site-arm64.tar target/site
+    - name: Rename arm64 binary
+      run: cp target/aarch64-unknown-linux-gnu/binrelease/server server-arm64
 
     - name: Release
       run: |
@@ -60,9 +69,10 @@ jobs:
     - name: Upload to nightly
       run: |
           gh release create nightly --prerelease --title nightly --target $GITHUB_SHA \
-            target/binrelease/server \
-            site.tar \
-            target/aarch64-unknown-linux-gnu/binrelease/server-aarch64 
+            server-x64 \
+            site-x64.tar \
+            server-arm64 \
+            site-arm64
 
     - name: Save cache
       id: cache-rust-save
