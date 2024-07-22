@@ -76,7 +76,7 @@ jobs:
             server-x64 \
             site-x64.tar \
             server-arm64 \
-            site-arm64
+            site-arm64.tar
 
     - name: Save cache
       id: cache-rust-save
