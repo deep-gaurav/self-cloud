@@ -1,9 +1,9 @@
 name: Rust
 
-on: 
+on:
   push:
-    tags:
-    - '*'
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
@@ -52,13 +52,17 @@ jobs:
       run: tar -cvf site.tar target/site
 
     - name: Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        files: |
-            target/binrelease/server
-            site.tar
-            target/aarch64-unknown-linux-gnu/binrelease/server-aarch64
+      run: |
+          gh release delete nightly --yes || true
+          git push origin :nightly || true
+
+    - name: Upload to nightly
+      run: |
+          gh release create nightly --prerelease --title nightly --target $GITHUB_SHA \
+            target/binrelease/server \
+            site.tar \
+            target/aarch64-unknown-linux-gnu/binrelease/server-aarch64 
+
     - name: Save cache
       id: cache-rust-save
       uses: actions/cache/save@v4
