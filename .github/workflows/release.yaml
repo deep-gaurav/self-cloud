@@ -38,13 +38,13 @@ jobs:
     - name: Install Cargo Leptos
       run: cargo install cargo-leptos
 
-    # - name: Build
-    #   run: cargo leptos build --release
+    - name: Build
+      run: cargo leptos build --release
 
-    # - name: Compress site
-    #   run: tar -cvf site-x64.tar target/site
-    # - name: Rename x64 binary
-    #   run: cp target/binrelease/server server-x64
+    - name: Compress site
+      run: tar -cvf site-x64.tar target/site
+    - name: Rename x64 binary
+      run: cp target/binrelease/server server-x64
 
     - name: Add aarch64
       run: rustup target add aarch64-unknown-linux-gnu
