@@ -220,6 +220,7 @@ impl ProxyHttp for Gateway {
                         if let Ok(peer) = peer {
                             let headers = session.req_header_mut();
                             let _ = headers.insert_header("X-Forwarded-Proto", "https");
+                            let _ = headers.append_header("X-Forwarded-Host", ctx.host.to_string());
                             return Ok(peer);
                         }
                     }
