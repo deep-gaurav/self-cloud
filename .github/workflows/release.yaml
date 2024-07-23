@@ -24,10 +24,14 @@ jobs:
       id: cache-rust
       uses: actions/cache@v4
       with:
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
         path: |
           /home/runner/.cargo
           /home/runner/work/self-cloud/self-cloud/target
-        key: self-cloud-cache
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
 
     - name: Install dependencies
       run: sudo apt update && sudo apt install -y clang cmake libevent-dev libclang-dev libcurl4-openssl-dev curl gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
