@@ -106,11 +106,7 @@ async fn run_and_set_container(
 
         info!("Running support_containers");
         for (name, support_container) in support_containers {
-<<<<<<< Updated upstream
-            info!("Running selfcloud_container {name}");
-=======
             info!("Running support selfcloud_container {name}");
->>>>>>> Stashed changes
             let container =
                 run_support_container(&docker, project.id, name, support_container, &network)
                     .await?;
