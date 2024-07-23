@@ -218,6 +218,8 @@ impl ProxyHttp for Gateway {
                     if let Some(project) = project {
                         let peer = get_peer(project, &ctx.host);
                         if let Ok(peer) = peer {
+                            let headers = session.req_header_mut();
+                            let _ = headers.insert_header("X-Forwarded-Proto", "https");
                             return Ok(peer);
                         }
                     }
