@@ -171,6 +171,7 @@ impl ProxyHttp for Gateway {
         }
 
         let headers = _session.req_header_mut();
+        info!("Adding X-Forwarded headers");
         let _ = headers.insert_header("X-Forwarded-Proto", "https");
         let _ = headers.append_header("X-Forwarded-Host", _ctx.host.to_string());
         Ok(false)
