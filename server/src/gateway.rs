@@ -169,6 +169,10 @@ impl ProxyHttp for Gateway {
         } else {
             // info!("No domain status");
         }
+
+        let headers = _session.req_header_mut();
+        let _ = headers.insert_header("X-Forwarded-Proto", "https");
+        let _ = headers.append_header("X-Forwarded-Host", _ctx.host.to_string());
         Ok(false)
     }
 
@@ -218,9 +222,6 @@ impl ProxyHttp for Gateway {
                     if let Some(project) = project {
                         let peer = get_peer(project, &ctx.host);
                         if let Ok(peer) = peer {
-                            let headers = session.req_header_mut();
-                            let _ = headers.insert_header("X-Forwarded-Proto", "https");
-                            let _ = headers.append_header("X-Forwarded-Host", ctx.host.to_string());
                             return Ok(peer);
                         }
                     }
