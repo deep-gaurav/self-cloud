@@ -85,8 +85,8 @@ tracing-journald = "0.3.0"
 unicase = "2.7.0"
 unicase_serde = "0.1.0"
 
-docker-api = { git = "https://github.com/vv9k/docker-api-rs" }
-docker-api-stubs = { git = "https://github.com/vv9k/docker-api-rs" }
+docker-api = { git = "https://github.com/deep-gaurav/docker-api-rs.git", branch = "reqwest" }
+docker-api-stubs = { git = "https://github.com/deep-gaurav/docker-api-rs", branch = "reqwest" }
 
 futures = "0.3.30"
 
@@ -104,7 +104,7 @@ tokio-stream = "0.1"
 
 leptos-chartistry = "0.1"
 
-reqwest = "0.12.5"
+reqwest = { version = "0.12.5", features = ["stream"] }
 
 phf = { version = "0.11.2", features = ["macros"] }
 
