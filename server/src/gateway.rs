@@ -177,6 +177,8 @@ impl ProxyHttp for Gateway {
         let _ = headers.append_header("X-Forwarded-Host", _ctx.host.to_string());
         if let Some(ip) = ip {
             let _ = headers.append_header("X-Forwarded-For", ip.ip().to_string());
+        } else {
+            warn!("No client ip, {:?}", _session.client_addr())
         }
         Ok(false)
     }
