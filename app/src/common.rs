@@ -47,11 +47,15 @@ impl PortForward {
     pub fn new(port: u16) -> Self {
         Self {
             port,
-            peer: Arc::new(pingora::upstreams::peer::HttpPeer::new(
-                format!("127.0.0.1:{}", port),
-                false,
-                String::new(),
-            )),
+            peer: Arc::new({
+                let mut peer = pingora::upstreams::peer::HttpPeer::new(
+                    format!("127.0.0.1:{}", port),
+                    false,
+                    String::new(),
+                );
+                peer.options.alpn = pingora::protocols::ALPN::H2H1;
+                peer
+            }),
         }
     }
 }

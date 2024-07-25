@@ -12,6 +12,7 @@ use docker_api::{
 };
 use leptos::logging::warn;
 use pingora::{
+    protocols::ALPN,
     server::ShutdownWatch,
     services::background::{background_service, BackgroundService, GenBackgroundService},
     upstreams::peer::HttpPeer,
@@ -250,11 +251,13 @@ async fn run_and_set_container(
                                         .and_then(|p| p.host_port)
                                         .and_then(|p| p.parse::<u16>().ok())
                                     {
-                                        port.peer = Some(Arc::new(HttpPeer::new(
+                                        let mut peer = HttpPeer::new(
                                             format!("127.0.0.1:{host_port}"),
                                             false,
                                             String::new(),
-                                        )))
+                                        );
+                                        peer.options.alpn = ALPN::H2H1;
+                                        port.peer = Some(Arc::new(peer))
                                     }
                                 }
                             }

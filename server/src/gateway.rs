@@ -8,6 +8,7 @@ use axum::{body::Bytes, http::header};
 use openssl::ssl::NameType;
 use pingora::{
     http::ResponseHeader,
+    protocols::ALPN,
     proxy::{http_proxy_service_with_name, HttpProxy, ProxyHttp, Session},
     server::Server,
     services::listening::Service,
@@ -30,7 +31,9 @@ impl Gateway {
         let http_port = 8080;
         let https_port = 4433;
 
-        let provisioning_gateway = Box::new(HttpPeer::new("127.0.0.1:3000", false, String::new()));
+        let mut peer = HttpPeer::new("127.0.0.1:3000", false, String::new());
+        peer.options.alpn = ALPN::H2H1;
+        let provisioning_gateway = Box::new(peer);
         let service = Self {
             provisioning_gateway,
             project_context: project_context.clone(),

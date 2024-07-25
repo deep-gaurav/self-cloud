@@ -205,11 +205,15 @@ pub fn GeneralSettings() -> impl IntoView {
                         Some(ProjectType::PortForward(PortForward {
                             port: 3000,
                             #[cfg(feature = "ssr")]
-                            peer: Arc::new(pingora::upstreams::peer::HttpPeer::new(
-                                "127.0.0.1:3000",
-                                false,
-                                String::new(),
-                            )),
+                            peer: Arc::new({
+                                let mut peer = pingora::upstreams::peer::HttpPeer::new(
+                                    "127.0.0.1:3000",
+                                    false,
+                                    String::new(),
+                                );
+                                peer.options.alpn = pingora::protocols::ALPN::H2H1;
+                                peer
+                            }),
                         }))
                     }
                 })
