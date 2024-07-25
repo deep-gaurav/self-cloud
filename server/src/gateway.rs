@@ -178,9 +178,6 @@ impl ProxyHttp for Gateway {
         if let Some(ip) = ip {
             let _ = headers.append_header("X-Forwarded-For", ip.ip().to_string());
         }
-        if headers.headers.get(header::HOST).is_none() {
-            let _ = headers.insert_header(header::HOST, _ctx.host.to_lowercase());
-        }
         Ok(false)
     }
 
