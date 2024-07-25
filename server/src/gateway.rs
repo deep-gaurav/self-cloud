@@ -170,10 +170,14 @@ impl ProxyHttp for Gateway {
             // info!("No domain status");
         }
 
+        let ip = _session.client_addr().and_then(|s| s.as_inet().cloned());
         let headers = _session.req_header_mut();
-        info!("Adding X-Forwarded headers");
+        // info!("Adding X-Forwarded headers");
         let _ = headers.insert_header("X-Forwarded-Proto", "https");
         let _ = headers.append_header("X-Forwarded-Host", _ctx.host.to_string());
+        if let Some(ip) = ip {
+            let _ = headers.append_header("X-Forwarded-For", ip.ip().to_string());
+        }
         Ok(false)
     }
 
