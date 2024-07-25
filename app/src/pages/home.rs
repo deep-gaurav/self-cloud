@@ -1,12 +1,15 @@
 use leptos::create_effect;
+use leptos::create_resource;
 use leptos::expect_context;
 use leptos::Action;
 use leptos::Resource;
 use leptos::ServerFnError;
 use leptos::SignalGet;
+use leptos::Suspense;
 use leptos::{component, view, IntoView};
 use leptos_router::ActionForm;
 
+use crate::api::get_server_version;
 use crate::auth::AuthType;
 use crate::auth::Login;
 
@@ -21,6 +24,8 @@ pub fn HomePage(login: Action<Login, Result<(), ServerFnError>>) -> impl IntoVie
             auth.refetch();
         }
     });
+
+    let version = create_resource(|| (), move |_| get_server_version());
 
     view! {
         <div class="w-full h-full flex items-center justify-center flex-col flex-grow 1">
@@ -45,6 +50,17 @@ pub fn HomePage(login: Action<Login, Result<(), ServerFnError>>) -> impl IntoVie
                 <div class="h-6"></div>
                 <input type="submit" value="Login" class="border p-2"/>
             </ActionForm>
+
+            <div class="h-2"/>
+            <div class="text-xs text-slate-600">
+            <Suspense>
+                {if let Some(Ok(version)) = version.get(){
+                   version
+                }else{
+                    "Unknown version".to_string()
+                }}
+            </Suspense>
+            </div>
         </div>
     }
 }

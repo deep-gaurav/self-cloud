@@ -424,6 +424,14 @@ pub async fn delete_project(id: Uuid) -> Result<(), ServerFnError> {
     Ok(())
 }
 
+#[server(GetServerVersion)]
+pub async fn get_server_version() -> Result<String, ServerFnError> {
+    let hash: &str = env!("GIT_HASH");
+    let version = env!("CARGO_PKG_VERSION");
+
+    Ok(format!("{}-{}", version, hash))
+}
+
 #[server(UpdateProjectNameToken)]
 pub async fn update_project_name_token(
     id: Uuid,
