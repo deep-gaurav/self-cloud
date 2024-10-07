@@ -1,101 +1,70 @@
-<picture>
-    <source srcset="https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_Solid_White.svg" media="(prefers-color-scheme: dark)">
-    <img src="https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_RGB.svg" alt="Leptos Logo">
-</picture>
+<h2 align="center"><b>SelfCloud</b></h2>
+<h4 align="center">Your Personal, Self-Hosted PaaS Solution</h4>
 
-# Leptos Axum Starter Template
+<hr>
 
-This is a template for use with the [Leptos](https://github.com/leptos-rs/leptos) web framework and the [cargo-leptos](https://github.com/akesson/cargo-leptos) tool using [Axum](https://github.com/tokio-rs/axum).
+## Screenshots
 
-## Creating your template repo
+[<img src="https://deepgaurav.com/assets/images/projects/selfcloud/sc1-2880.avif" height=300>](SC1)
+[<img src="https://deepgaurav.com/assets/images/projects/selfcloud/sc2-2880.avif" height=300>](SC2)
+[<img src="https://deepgaurav.com/assets/images/projects/selfcloud/sc3-2880.avif" height=300>](SC3)
+[<img src="https://deepgaurav.com/assets/images/projects/selfcloud/sc4-2880.avif" height=300>](SC4)
+[<img src="https://deepgaurav.com/assets/images/projects/selfcloud/sc5-2880.avif" height=300>](SC5)
+[<img src="https://deepgaurav.com/assets/images/projects/selfcloud/sc6-2880.avif" height=300>](SC6)
 
-If you don't have `cargo-leptos` installed you can install it with
 
-```bash
-cargo install cargo-leptos
-```
+## Overview
 
-Then run
-```bash
-cargo leptos new --git https://github.com/leptos-rs/start-axum-workspace/
-```
+SelfCloud empowers developers to create their own Platform as a Service (PaaS) environment. Built entirely in Rust using the Leptos framework, it provides a robust, efficient, and user-friendly solution for deploying and managing containerized applications.
 
-to generate a new project template.
+## Features
 
-```bash
-cd {projectname}
-```
+- **Project Management**: Create and manage multiple projects within your SelfCloud instance.
+- **Custom Domain Support**: Assign custom domains to your projects with ease.
+- **Automated SSL Management**: SelfCloud handles SSL certificate generation and renewal automatically.
+- **Container Deployment**: Push and deploy Docker containers to your projects using generated tokens.
+- **Port Exposure**: Automatically exposes configured ports to assigned domains.
+- **Support Containers**: Deploy additional containers like databases to support your main application.
+- **Monitoring and Logs**: Keep track of your application's performance and logs in real-time.
+- **Terminal Access**: Attach a terminal to your containers for direct interaction and debugging.
 
-to go to your newly created project.  
-Feel free to explore the project structure, but the best place to start with your application code is in `src/app.rs`.  
-Addtionally, Cargo.toml may need updating as new versions of the dependencies are released, especially if things are not working after a `cargo update`.
+## How It Works
 
-### Islands support
+1. Create a new project in SelfCloud and assign it a domain.
+2. Generate an authentication token for the project.
+3. Use the token to push your Docker container to SelfCloud.
+4. SelfCloud deploys your container and exposes the configured port to the assigned domain.
+5. Monitor your application's performance, view logs, and access the terminal as needed.
 
-Note that for islands to work correctly, you need to have a `use app;` in your frontend `lib.rs` otherwise rustc / wasm_bindgen gets confused.
-To prevent clippy from complaining, at the top of the `frontend/lib.rs` file place:
-```rust
-#[allow(clippy::single_component_path_imports)]
-#[allow(unused_imports)]
-use app;
-```
+## Technical Details
 
-## Running your project
+- **Backend & Frontend**: Built with Rust using the Leptos framework for a unified, full-stack development experience.
+- **Containerization**: Utilizes Docker for application deployment and isolation.
+- **SSL Management**: Integrates with Let's Encrypt for automated SSL certificate provisioning and renewal.
+- **Reverse Proxy**: Employs a reverse proxy to route traffic to the appropriate containers based on domain configuration.
 
-```bash
-cargo leptos watch
-```
+## Key Advantages
 
-## Installing Additional Tools
+- **Self-Hosted**: Maintain full control over your deployment environment and data.
+- **Cost-Effective**: Eliminate ongoing PaaS subscription costs by hosting on your own infrastructure.
+- **Customizable**: Tailor the platform to your specific needs and workflows.
+- **Secure**: Benefit from Rust's security features and automated SSL management.
+- **Performance**: Leverage Rust's speed and efficiency for optimal resource utilization.
 
-By default, `cargo-leptos` uses `nightly` Rust, `cargo-generate`, and `sass`. If you run into any trouble, you may need to install one or more of these tools.
+## Use Cases
 
-1. `rustup toolchain install nightly --allow-downgrade` - make sure you have Rust nightly
-2. `rustup default nightly` - setup nightly as default, or you can use rust-toolchain file later on
-3. `rustup target add wasm32-unknown-unknown` - add the ability to compile Rust to WebAssembly
-4. `cargo install cargo-generate` - install `cargo-generate` binary (should be installed automatically in future)
-5. `npm install -g sass` - install `dart-sass` (should be optional in future
+- **Personal Projects**: Deploy and manage your side projects with ease.
+- **Small Teams**: Provide a centralized deployment solution for team projects.
+- **Education**: Set up a controlled environment for teaching deployment and DevOps concepts.
+- **Prototyping**: Quickly deploy and iterate on new ideas without complex setup.
 
-## Compiling for Release
-```bash
-cargo leptos build --release
-```
+Experience the power and flexibility of your own personal PaaS with SelfCloud - where control meets convenience in application deployment!
 
-Will generate your server binary in target/server/release and your site package in target/site
+## License
+[![GNU GPLv3 Image](https://www.gnu.org/graphics/gplv3-127x51.png)](https://www.gnu.org/licenses/gpl-3.0.html)  
 
-## Testing Your Project
-```bash
-cargo leptos end-to-end
-```
-
-```bash
-cargo leptos end-to-end --release
-```
-
-Cargo-leptos uses Playwright as the end-to-end test tool.  
-Tests are located in end2end/tests directory.
-
-## Executing a Server on a Remote Machine Without the Toolchain
-After running a `cargo leptos build --release` the minimum files needed are:
-
-1. The server binary located in `target/server/release`
-2. The `site` directory and all files within located in `target/site`
-
-Copy these files to your remote server. The directory structure should be:
-```text
-start-axum
-site/
-```
-Set the following enviornment variables (updating for your project as needed):
-```text
-LEPTOS_OUTPUT_NAME="start-axum"
-LEPTOS_SITE_ROOT="site"
-LEPTOS_SITE_PKG_DIR="pkg"
-LEPTOS_SITE_ADDR="127.0.0.1:3000"
-LEPTOS_RELOAD_PORT="3001"
-```
-Finally, run the server binary.
-
-## Licensing
-
-This template itself is released under the Unlicense. You should replace the LICENSE for your own application with an appropriate license if you plan to release it publicly.
+SelfCloud is Free Software: You can use, study share and improve it at your
+will. Specifically you can redistribute and/or modify it under the terms of the
+[GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html) as
+published by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
