@@ -423,8 +423,9 @@ pub fn GeneralSettings() -> impl IntoView {
 
 
                                                                         <input
-                                                                            name="host_port"
-                                                                            prop:value=exposed_port.port
+                                                                            name=format!("exposed_ports[{index}][host_port]")
+                                                                            id="host_port"
+                                                                            prop:value=exposed_port.host_port
                                                                             type="number"
                                                                             class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
                                                                         />
