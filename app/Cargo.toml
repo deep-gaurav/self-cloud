@@ -48,6 +48,8 @@ chrono.workspace = true
 leptos_sse = { workspace = true }
 
 leptos-chartistry.workspace = true
+web-sys.workspace = true
+codee.workspace = true
 
 json-patch.workspace = true
 

@@ -193,7 +193,14 @@ async fn run_and_set_container(
                         .publish_all_ports();
 
                     for expose_port in exposed_ports.iter() {
-                        builder = builder.publish(PublishPort::tcp(expose_port.port as u32));
+                        if let Some(host_port) = expose_port.host_port {
+                            builder = builder.expose(
+                                PublishPort::tcp(expose_port.port as u32),
+                                host_port as u32,
+                            );
+                        } else {
+                            builder = builder.publish(PublishPort::tcp(expose_port.port as u32));
+                        }
                     }
                     docker.containers().create(&builder.build()).await
                 });

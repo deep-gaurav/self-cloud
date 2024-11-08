@@ -410,14 +410,25 @@ pub fn GeneralSettings() -> impl IntoView {
                                                                     <label for="port" class="text-sm dark:text-white/50">
                                                                         "Port"
                                                                     </label>
-                                                                    <input
-                                                                        prop:value=exposed_port.port
-                                                                        type="number"
-                                                                        id="port"
-                                                                        name=format!("exposed_ports[{index}][port]")
-                                                                        required
-                                                                        class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
-                                                                    />
+
+                                                                    <div class="flex gap-2">
+                                                                        <input
+                                                                            prop:value=exposed_port.port
+                                                                            type="number"
+                                                                            id="port"
+                                                                            name=format!("exposed_ports[{index}][port]")
+                                                                            required
+                                                                            class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                        />
+
+
+                                                                        <input
+                                                                            name="host_port"
+                                                                            prop:value=exposed_port.port
+                                                                            type="number"
+                                                                            class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                        />
+                                                                    </div>
                                                                 </div>
 
                                                                 <div class=" flex flex-col">
@@ -481,6 +492,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                                 on:click=move |_| {
                                                     let new_port = ExposedPort {
                                                         port: 0,
+                                                        host_port: None,
                                                         domains: vec![].into(),
                                                         #[cfg(feature = "ssr")]
                                                         peer: unimplemented!("Cant create new exposed port in ssr"),

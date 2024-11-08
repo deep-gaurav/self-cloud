@@ -179,6 +179,7 @@ impl ContainerStatus {
 #[derive(Serialize, Clone, Debug)]
 pub struct ExposedPort {
     pub port: u16,
+    pub host_port: Option<u16>,
     #[cfg(feature = "ssr")]
     #[serde(skip)]
     pub peer: Option<Arc<pingora::upstreams::peer::HttpPeer>>,
@@ -211,6 +212,7 @@ impl<'de> Deserialize<'de> for ExposedPort {
         #[derive(Clone, Deserialize)]
         pub struct TmpExposedPort {
             pub port: u16,
+            pub host_port: Option<u16>,
             pub domains: smallvec::SmallVec<[Domain; 2]>,
         }
 
@@ -220,6 +222,7 @@ impl<'de> Deserialize<'de> for ExposedPort {
         {
             Ok(Self {
                 port: d.port,
+                host_port: d.host_port,
                 domains: d.domains,
             })
         }
@@ -228,6 +231,7 @@ impl<'de> Deserialize<'de> for ExposedPort {
         {
             Ok(Self {
                 port: d.port,
+                host_port: d.host_port,
                 domains: d.domains,
                 peer: None,
             })
@@ -494,7 +498,7 @@ pub fn get_docker() -> docker_api::Docker {
     docker_api::Docker::unix(sock)
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum TtyChunk {
     StdIn(Vec<u8>),
     StdOut(Vec<u8>),

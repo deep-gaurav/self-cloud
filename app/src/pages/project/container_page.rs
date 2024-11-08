@@ -1,6 +1,10 @@
 use std::collections::VecDeque;
+use std::str::FromStr;
 use std::sync::Mutex;
 
+use codee::binary::{BincodeSerdeCodec, FromToBytesCodec};
+use codee::string::FromToStringCodec;
+use codee::{Decoder, Encoder};
 use leptos::{
     component, create_effect, create_node_ref, create_resource, create_server_action,
     expect_context, prelude::*, view, For, IntoView, Transition,
@@ -12,7 +16,7 @@ use leptos_chartistry::{
 };
 use leptos_toaster::{Toast, ToastId, ToastVariant, Toasts};
 use leptos_use::{use_interval_fn, utils::Pausable};
-use leptos_use::{use_websocket, UseWebsocketReturn};
+use leptos_use::{use_websocket, UseWebSocketReturn};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 use uuid::Uuid;
@@ -337,7 +341,7 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
     }
 
     // Create server signal
-    let UseWebsocketReturn {
+    let UseWebSocketReturn {
         // ready_state,
         message,
         // message_bytes,
@@ -346,7 +350,9 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
         // open,
         // close,
         ..
-    } = use_websocket(&format!("/events/container/{id}/stats/ws"));
+    } = use_websocket::<String, String, FromToStringCodec>(&format!(
+        "/events/container/{id}/stats/ws"
+    ));
 
     let (stats_vecdq, _set_stats_vecdq) =
         create_signal(std::rc::Rc::new(Mutex::new(VecDeque::with_capacity(30))));
@@ -469,40 +475,34 @@ pub fn ContainerStats(id: Uuid) -> impl IntoView {
 #[component]
 pub fn ContainerLogs(id: Uuid) -> impl IntoView {
     // Create server signal
-    let UseWebsocketReturn {
+    let UseWebSocketReturn {
         // ready_state,
         // message,
-        message_bytes,
+        message,
         // send,
         // send_bytes,
         // open,
         // close,
         ..
-    } = use_websocket(&format!("/events/container/{id}/logs/ws"));
+    } = use_websocket::<TtyChunk, TtyChunk, BincodeSerdeCodec>(&format!(
+        "/events/container/{id}/logs/ws"
+    ));
 
     let (output, set_output) = create_signal(String::new());
     let div_ref = create_node_ref::<leptos::html::Div>();
 
     create_effect(move |_| {
-        let message = message_bytes.get();
+        let message = message.get();
         if let Some(message) = message {
-            let chunk = bincode::deserialize::<TtyChunk>(&message);
-            match chunk {
-                Ok(chunk) => {
-                    let string = std::str::from_utf8(chunk.as_ref());
-                    if let Ok(string) = string {
-                        if let Ok(html) = ansi_to_html::convert(&string) {
-                            let mut data = output.get_untracked();
-                            data.push_str(&html);
-                            if let Some(node) = div_ref.get_untracked() {
-                                node.set_inner_html(&data);
-                            }
-                            set_output.set(data);
-                        }
+            let string = std::str::from_utf8(message.as_ref());
+            if let Ok(string) = string {
+                if let Ok(html) = ansi_to_html::convert(&string) {
+                    let mut data = output.get_untracked();
+                    data.push_str(&html);
+                    if let Some(node) = div_ref.get_untracked() {
+                        node.set_inner_html(&data);
                     }
-                }
-                Err(err) => {
-                    tracing::warn!("Received data not tty-chunk {err:?}")
+                    set_output.set(data);
                 }
             }
         }
@@ -531,16 +531,18 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
             };
             let params = serde_urlencoded::to_string(&params).unwrap_or_default();
             // Create server signal
-            let UseWebsocketReturn {
+            let UseWebSocketReturn {
                 // ready_state,
                 // message,
-                message_bytes,
+                message,
                 send,
                 // send_bytes,
                 // open,
                 // close,
                 ..
-            } = use_websocket(&format!("/events/container/{id}/attach/ws?{params}"));
+            } = use_websocket::<String, TtyChunk, TermCodec>(&format!(
+                "/events/container/{id}/attach/ws?{params}"
+            ));
 
             let closure = Closure::wrap(Box::new(move |data: JsValue| {
                 let event = data.as_string();
@@ -559,31 +561,23 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
             // let screen = std::rc::Rc::new(Mutex::new(screen)); // TODO: use for diff
 
             create_effect(move |_| {
-                let message = message_bytes.get();
+                let message = message.get();
                 if let Some(message) = message {
-                    let chunk = bincode::deserialize::<TtyChunk>(&message);
-                    match chunk {
-                        Ok(chunk) => {
-                            if let Ok(mut vt) = vt_rc.lock() {
-                                vt.process(chunk.as_ref());
-                                let new_screen = vt.screen().clone();
-                                let contents = new_screen.contents_formatted(); // TODO: Remove vt100 or use diff
-                                                                                // *screen = new_screen;
-                                let contents_str = std::str::from_utf8(&contents);
-                                if let Ok(contents_str) = contents_str {
-                                    let uint8_array = contents_str.into();
-                                    terminal.clear();
-                                    terminal.write(&uint8_array);
-                                } else {
-                                    let uint8_array =
-                                        unsafe { js_sys::Uint8Array::view(contents.as_ref()) };
-                                    terminal.clear();
-                                    terminal.write(&uint8_array);
-                                }
-                            }
-                        }
-                        Err(err) => {
-                            tracing::warn!("Received data not tty-chunk {err:?}")
+                    if let Ok(mut vt) = vt_rc.lock() {
+                        vt.process(message.as_ref());
+                        let new_screen = vt.screen().clone();
+                        let contents = new_screen.contents_formatted(); // TODO: Remove vt100 or use diff
+                                                                        // *screen = new_screen;
+                        let contents_str = std::str::from_utf8(&contents);
+                        if let Ok(contents_str) = contents_str {
+                            let uint8_array = contents_str.into();
+                            terminal.clear();
+                            terminal.write(&uint8_array);
+                        } else {
+                            let uint8_array =
+                                unsafe { js_sys::Uint8Array::view(contents.as_ref()) };
+                            terminal.clear();
+                            terminal.write(&uint8_array);
                         }
                     }
                 }
@@ -617,5 +611,25 @@ pub fn ContainerAttach(id: Uuid) -> impl IntoView {
         </script>
 
         <div _ref=div_ref class=""></div>
+    }
+}
+
+struct TermCodec;
+
+impl<T: ToString> Encoder<T> for TermCodec {
+    type Error = ();
+    type Encoded = String;
+
+    fn encode(val: &T) -> Result<String, Self::Error> {
+        Ok(val.to_string())
+    }
+}
+
+impl<T: serde::de::DeserializeOwned> Decoder<T> for TermCodec {
+    type Error = bincode::Error;
+    type Encoded = [u8];
+
+    fn decode(val: &Self::Encoded) -> Result<T, Self::Error> {
+        bincode::deserialize(val)
     }
 }
