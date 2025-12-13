@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use leptos::{server, use_context, ServerFnError};
+use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -64,20 +64,29 @@ pub async fn get_auth() -> Result<AuthType, ServerFnError> {
 #[server(Login)]
 pub async fn login(email: String, password: String) -> Result<(), ServerFnError> {
     use self::server::get_encrypted_user_cookie;
+    use http::header::HeaderValue;
+    use leptos_axum::ResponseOptions;
 
     let users = use_context::<AuthorizedUsers>().ok_or(ServerFnError::new(anyhow::anyhow!(
         "authorized user not found"
     )))?;
-    use tower_cookies::Cookies;
+    // use tower_cookies::Cookies; // Removed
 
-    let cookies =
-        use_context::<Cookies>().ok_or(ServerFnError::new(anyhow::anyhow!("no cookies")))?;
+    // let cookies =
+    //    use_context::<Cookies>().ok_or(ServerFnError::new(anyhow::anyhow!("no cookies")))?;
 
     let user = users.get(&email);
     if let Some(user) = user {
         if user.pass == password {
             let cookie = get_encrypted_user_cookie(&user.user).unwrap();
-            cookies.add(cookie);
+            // cookies.add(cookie);
+            let response_options = use_context::<ResponseOptions>()
+                .ok_or(ServerFnError::new(anyhow::anyhow!("No ResponseOptions")))?;
+            response_options.append_header(
+                http::header::SET_COOKIE,
+                HeaderValue::from_str(&cookie.to_string())?,
+            );
+
             info!("Login successful");
             leptos_axum::redirect("/dashboard");
             Ok(())
@@ -96,7 +105,7 @@ pub mod server {
 
     use super::User;
     use anyhow::anyhow;
-    use tower_cookies::Cookie;
+    use cookie::Cookie; // Changed from tower_cookies
 
     pub const AUTH_KEY: [u8; 32] = *b"AED4841B431AA729E2FEC22AA7653E1D";
 
@@ -105,7 +114,7 @@ pub mod server {
         use aes_gcm_siv::AeadCore;
         use aes_gcm_siv::{Aes256GcmSiv, KeyInit};
 
-        use rand::rngs::OsRng;
+        use aes_gcm_siv::aead::OsRng;
 
         let cipher =
             Aes256GcmSiv::new_from_slice(&AUTH_KEY).map_err(|_e| anyhow!("Invalid key"))?;

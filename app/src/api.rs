@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use leptos::{expect_context, server, use_context, ServerFnError};
+use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -21,9 +21,9 @@ pub async fn inspect_container(
         .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container {
         primary_container: container,
-        support_containers,
-        tokens,
-        exposed_ports,
+        support_containers: _,
+        tokens: _,
+        exposed_ports: _,
     } = &project.project_type
     {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
@@ -48,9 +48,9 @@ pub async fn pause_container(id: Uuid) -> Result<(), ServerFnError> {
         .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container {
         primary_container: container,
-        support_containers,
-        tokens,
-        exposed_ports,
+        support_containers: _,
+        tokens: _,
+        exposed_ports: _,
     } = &project.project_type
     {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
@@ -77,9 +77,9 @@ pub async fn resume_container(id: Uuid) -> Result<(), ServerFnError> {
         .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container {
         primary_container: container,
-        support_containers,
-        tokens,
-        exposed_ports,
+        support_containers: _,
+        tokens: _,
+        exposed_ports: _,
     } = &project.project_type
     {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
@@ -107,9 +107,9 @@ pub async fn stop_container(id: Uuid) -> Result<(), ServerFnError> {
         .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container {
         primary_container: container,
-        support_containers,
-        tokens,
-        exposed_ports,
+        support_containers: _,
+        tokens: _,
+        exposed_ports: _,
     } = &project.project_type
     {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
@@ -137,9 +137,9 @@ pub async fn start_container(id: Uuid) -> Result<(), ServerFnError> {
         .ok_or(ServerFnError::new("Not project with given id"))?;
     if let ProjectType::Container {
         primary_container: container,
-        support_containers,
-        tokens,
-        exposed_ports,
+        support_containers: _,
+        tokens: _,
+        exposed_ports: _,
     } = &project.project_type
     {
         if let crate::common::ContainerStatus::Running(container) = &container.status {
@@ -183,12 +183,15 @@ pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
 
 #[server(GetProject)]
 pub async fn get_project(id: Uuid) -> Result<Project, ServerFnError> {
+    println!("Fetching project with id: {}", id);
     user()?;
     let context = project_context()?;
-
+    println!("Fetched project with id: {}, lock", id);
     if let Some(project) = context.get_project(id).await {
+        println!("Fetched project with id: {}", id);
         Ok(project.as_ref().clone())
     } else {
+        println!("No project with id: {}", id);
         use http::StatusCode;
         use leptos_axum::ResponseOptions;
 
@@ -211,11 +214,13 @@ pub async fn get_project_domains(
         .into_iter()
         .map(|(d, status)| (d.to_lowercase(), status.into()))
         .collect();
+    println!("Fetched domains for {}: {:?}", id, project_domains);
     Ok(project_domains)
 }
 
 #[server(AddProjectDomain)]
 pub async fn add_project_domain(id: Uuid, domain: String) -> Result<(), ServerFnError> {
+    println!("Adding domain {} to project {}", domain, id);
     user()?;
 
     let mut project_context = project_context()?;
@@ -334,10 +339,10 @@ pub async fn update_project_image(
         .ok_or(ServerFnError::new("Not project with given id"))?;
 
     let tokens = if let ProjectType::Container {
-        primary_container,
-        support_containers,
+        primary_container: _,
+        support_containers: _,
         tokens,
-        exposed_ports,
+        exposed_ports: _,
     } = &project.project_type
     {
         Some(tokens.clone())
@@ -348,10 +353,10 @@ pub async fn update_project_image(
     let new_project = Project {
         project_type: ProjectType::Container {
             support_containers: if let ProjectType::Container {
-                primary_container,
+                primary_container: _,
                 support_containers,
-                tokens,
-                exposed_ports,
+                tokens: _,
+                exposed_ports: _,
             } = &project.project_type
             {
                 support_containers.clone()

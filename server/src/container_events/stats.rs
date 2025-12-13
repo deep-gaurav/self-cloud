@@ -7,10 +7,10 @@ use axum::{
     },
     response::Response,
 };
+use axum_extra::extract::cookie::CookieJar;
 use docker_api::Container;
 use http::StatusCode;
 use tokio_stream::StreamExt;
-use tower_cookies::Cookies;
 use tracing::warn;
 use uuid::Uuid;
 
@@ -20,11 +20,11 @@ use super::ensure_authorized_user;
 
 pub async fn container_stats_ws(
     State(app_state): State<AppState>,
-    cookies: Cookies,
+    jar: CookieJar,
     Path(project_id): Path<Uuid>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, (axum::http::StatusCode, String)> {
-    ensure_authorized_user(cookies)?;
+    ensure_authorized_user(jar)?;
     let container = {
         let project = app_state
             .project_context
@@ -61,7 +61,7 @@ async fn handle_stats_socket(mut socket: WebSocket, container: Arc<Container>) {
                     Ok(item) => {
                         let patch = json_patch::diff(&previous_value, &item);
                         if let Ok(patch_serialized) = serde_json::to_string(&patch) {
-                            if let Err(err) = socket.send(Message::Text(patch_serialized)).await {
+                            if let Err(err) = socket.send(Message::Text(patch_serialized.into())).await {
                                 warn!("Failed to send msg {err:?}");
                             } else {
                                 previous_value = item;

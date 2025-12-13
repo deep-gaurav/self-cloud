@@ -1,32 +1,23 @@
+use crate::common::Project;
 use crate::common::{Container, ProjectType, SupportContainer};
-use crate::{common::Project, components::input_field::InputField};
-use leptos::{
-    component, create_memo, create_server_action, expect_context, view, DynAttrs, IntoView,
-    Resource, ServerFnError, SignalGet, Transition,
-};
-use leptos_router::ActionForm;
+use leptos::prelude::*;
+use leptos::server_fn::ServerFn;
+use leptos_router::components::Form;
 use uuid::Uuid;
 
-use crate::api::DeleteProject;
 use crate::api::SetSupportContainers;
 use crate::common::EnvironmentVar;
-use crate::common::Token;
-use crate::utils::random_ascii_string;
-use leptos::SignalGetUntracked;
-use leptos::SignalSet;
-use leptos::{create_signal, For};
-use std::collections::HashMap;
 
 #[component]
 pub fn SupportContainers() -> impl IntoView {
-    let id = expect_context::<Uuid>();
+    let id = expect_context::<Signal<Uuid>>();
 
-    let project = expect_context::<Resource<(), Result<Project, ServerFnError>>>();
+    let project = expect_context::<Resource<Result<Project, ServerFnError>>>();
 
     let project_type =
-        create_memo(move |_| project.get().and_then(|p| p.ok()).map(|p| p.project_type));
+        Memo::new(move |_| project.get().and_then(|p| p.ok()).map(|p| p.project_type));
 
-    let update_support_container_action = create_server_action::<SetSupportContainers>();
+    let update_support_container_action = ServerAction::<SetSupportContainers>::new();
     view! {
         <Transition>
 
@@ -36,11 +27,11 @@ pub fn SupportContainers() -> impl IntoView {
                     Some(project_type) => {
                         match project_type {
                             ProjectType::Container { support_containers, .. } => {
-                                let (support_containers, set_support_containers) = create_signal(
+                                let (support_containers, set_support_containers) = signal(
                                     support_containers,
                                 );
                                 view! {
-                                    <input type="hidden" name="id" value=id.to_string()/>
+                                    <input type="hidden" name="id" value=move || id.get().to_string()/>
                                     <div class="text-xl " class=("abc", move || true)>
                                         "Service Containers"
                                     </div>
@@ -48,7 +39,7 @@ pub fn SupportContainers() -> impl IntoView {
                                     <div class="flex gap-2">
 
                                         {
-                                            let (new_service_name, set_new_service_name) = create_signal(
+                                            let (new_service_name, set_new_service_name) = signal(
                                                 String::new(),
                                             );
                                             view! {
@@ -56,7 +47,6 @@ pub fn SupportContainers() -> impl IntoView {
                                                     class="p-2 border w-full rounded bg-white dark:bg-white/10 dark:border-white/5"
                                                     prop:value=new_service_name
                                                     on:input=move |ev| {
-                                                        use leptos::event_target_value;
                                                         set_new_service_name.set(event_target_value(&ev));
                                                     }
                                                 />
@@ -91,7 +81,7 @@ pub fn SupportContainers() -> impl IntoView {
 
                                     </div>
                                     <div class="h-2"></div>
-                                    <ActionForm action=update_support_container_action>
+                                    <Form action=SetSupportContainers::url()>
 
                                         <input
                                             name="id"
@@ -105,9 +95,8 @@ pub fn SupportContainers() -> impl IntoView {
                                             each=move || support_containers.get().into_iter()
                                             key=|p| p.0.clone()
                                             children=move |cont| {
-                                                use leptos::store_value;
-                                                let name = store_value(cont.0.clone());
-                                                let (env_vars, set_env_vars) = create_signal({
+                                                let name = StoredValue::new(cont.0.clone());
+                                                let (env_vars, set_env_vars) = signal({
                                                     let mut map = Vec::with_capacity(
                                                         cont.1.container.env_vars.len(),
                                                     );
@@ -248,14 +237,14 @@ pub fn SupportContainers() -> impl IntoView {
                                             class="cursor-pointer block border p-2 px-10 rounded bg-slate-800 text-white disabled:cursor-no-drop disabled:bg-slate-200 disabled:text-black dark:disabled:bg-white/20 dark:disabled:text-white dark:border-none dark:bg-white/90 dark:text-black"
                                         />
 
-                                    </ActionForm>
+                                    </Form>
                                 }
-                                    .into_view()
+                                    .into_any()
                             }
-                            ProjectType::PortForward(_) => view! {}.into_view(),
+                            ProjectType::PortForward(_) => view! {}.into_any(),
                         }
                     }
-                    None => view! {}.into_view(),
+                    None => view! {}.into_any(),
                 }
             }}
 

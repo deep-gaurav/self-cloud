@@ -44,7 +44,7 @@ impl Gateway {
         service.add_tcp(&format!("0.0.0.0:{http_port}"));
 
         let mut tls_settings =
-            pingora::listeners::TlsSettings::with_callbacks(Box::new(CertSolver {
+            pingora::listeners::tls::TlsSettings::with_callbacks(Box::new(CertSolver {
                 project_context,
             }))
             .unwrap();

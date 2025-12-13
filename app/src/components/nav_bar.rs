@@ -1,21 +1,22 @@
-use leptos::{component, view, IntoView, SignalGet};
+use leptos::prelude::*;
 use leptos_icons::Icon;
-use leptos_router::{use_router, A};
+use leptos_router::components::A;
+use leptos_router::hooks::use_location;
 
 #[component]
 pub fn NavBar() -> impl IntoView {
-    let route = use_router();
+    let location = use_location();
     view! {
         <nav class="flex items-center gap-1 p-2 flex-wrap">
 
-            <A href="/" class="flex gap-2 px-2 py-1">
+            <A href="/" attr:class="flex gap-2 px-2 py-1">
                 <Icon icon=icondata::BsCloudFog2Fill width="30" height="30"/>
                 <div class="text-xl">"SelfCloud"</div>
             </A>
             <div></div>
 
             {move || {
-                let path = route.pathname().get();
+                let path = location.pathname.get();
                 let path_splits = path.trim_start_matches("/").split("/");
                 let mut url = "/".to_string();
                 let mut elements = vec![];
@@ -29,7 +30,7 @@ pub fn NavBar() -> impl IntoView {
                             view! {
                                 <div>"/"</div>
                                 <A
-                                    class="px-2 py-1 dark:hover:bg-white/20 cursor-pointer"
+                                    attr:class="px-2 py-1 dark:hover:bg-white/20 cursor-pointer"
                                     href=element_url
                                 >
                                     {element_text}

@@ -2,7 +2,7 @@ use app::{
     auth::{server::get_user_from_cookie, AuthType, AuthorizedUsers},
     common::add_port_forward_project,
     context::ProjectContext,
-    App,
+    shell, App,
 };
 use axum::{body::Body as AxumBody, extract::DefaultBodyLimit, Router};
 use axum::{
@@ -13,15 +13,19 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
-use leptos::{get_configuration, provide_context, LeptosOptions};
-use leptos_axum::{generate_route_list, handle_server_fns_with_context, LeptosRoutes};
-use leptos_router::RouteListing;
+use leptos::config::get_configuration;
+use leptos::prelude::*;
+// use leptos::prelude::*;
+use leptos_axum::{
+    generate_route_list, handle_server_fns_with_context, AxumRouteListing, LeptosRoutes,
+};
+// use leptos_router::RouteListing;
 
+use axum_extra::extract::cookie::CookieJar;
 use pingora::{
     server::ShutdownWatch,
     services::background::{background_service, BackgroundService, GenBackgroundService},
 };
-use tower_cookies::{CookieManagerLayer, Cookies};
 use tracing::info;
 
 use crate::{
@@ -62,7 +66,7 @@ impl BackgroundService for LeptosService {
 #[derive(FromRef, Clone)]
 pub struct AppState {
     leptos_options: LeptosOptions,
-    routes: Vec<RouteListing>,
+    routes: Vec<AxumRouteListing>,
     pub tls_state: TLSState,
     pub authorized_users: AuthorizedUsers,
     pub project_context: ProjectContext,
@@ -75,12 +79,16 @@ async fn run_main(tls_state: TLSState, mut context: ProjectContext) {
     // Alternately a file can be specified such as Some("Cargo.toml")
     // The file would need to be included with the executable when moved to deployment
     tracing::info!("Starting leptos service");
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).unwrap();
 
     let leptos_options = conf.leptos_options;
 
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
+    let functions = server_fn::axum::server_fn_paths().collect::<Vec<_>>();
+
+    tracing::info!("Routes: {routes:?}");
+    tracing::info!("Functions: {functions:?}");
 
     tracing::info!("Getting authorized users");
     let users = match get_authorized_users().await {
@@ -116,18 +124,19 @@ async fn run_main(tls_state: TLSState, mut context: ProjectContext) {
             post(image_uploader::push_image).layer(DefaultBodyLimit::max(1024 * 1024 * 400)),
         )
         .route(
-            "/api/*fn_name",
+            "/api/{*fn_name}",
             get(server_fn_handler).post(server_fn_handler),
         )
         .leptos_routes_with_handler(routes, get(leptos_routes_handler))
-        .route("/.well-known/acme-challenge/:token", get(acme_handler))
-        .route("/events/container/:id/stats/ws", get(container_stats_ws))
-        .route("/events/container/:id/logs/ws", get(container_logs_ws))
-        .route("/events/container/:id/attach/ws", get(container_attach_ws))
+        .route("/.well-known/acme-challenge/{token}", get(acme_handler))
+        .route("/events/container/{id}/stats/ws", get(container_stats_ws))
+        .route("/events/container/{id}/logs/ws", get(container_logs_ws))
+        .route("/events/container/{id}/attach/ws", get(container_attach_ws))
         .fallback(file_and_error_handler)
         .with_state(app_state)
-        .layer(compression)
-        .layer(CookieManagerLayer::new());
+        .layer(compression);
+
+    // .layer(CookieManagerLayer::new());
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
@@ -173,12 +182,12 @@ async fn leptos_routes_handler(
     State(app_state): State<AppState>,
     // auth_session: AuthSession,
     // path: Path<String>,
-    cookies: Cookies,
+    jar: CookieJar,
     request: Request<AxumBody>,
 ) -> Response {
     // info!("Handling request {:?}", request.uri());
-    let auth = if let Some(cookie) = cookies.get("sessionId") {
-        if let Ok(user) = get_user_from_cookie(cookie) {
+    let auth = if let Some(cookie) = jar.get("sessionId") {
+        if let Ok(user) = get_user_from_cookie(cookie.clone()) {
             AuthType::Authorized(user)
         } else {
             AuthType::UnAuthorized
@@ -187,15 +196,17 @@ async fn leptos_routes_handler(
         AuthType::UnAuthorized
     };
 
-    let handler = leptos_axum::render_route_with_context(
-        app_state.leptos_options.clone(),
-        app_state.routes.clone(),
+    let handler = leptos_axum::render_app_async_stream_with_context(
+        // app_state.routes.clone(),
         move || {
             provide_context(auth.clone());
             provide_context(app_state.project_context.clone());
             // provide_context(app_state.otp_map.clone());
         },
-        App,
+        {
+            let leptos_options = app_state.leptos_options.clone();
+            move || shell(leptos_options.clone())
+        },
     );
     handler(request).await.into_response()
 }
@@ -205,12 +216,12 @@ async fn server_fn_handler(
     State(app_state): State<AppState>,
     // auth_session: AuthSession,
     // path: Path<String>,
-    cookies: Cookies,
+    jar: CookieJar,
     request: Request<AxumBody>,
 ) -> impl IntoResponse {
     // log!("{:?}", path);
-    let auth = if let Some(cookie) = cookies.get("sessionId") {
-        if let Ok(user) = get_user_from_cookie(cookie) {
+    let auth = if let Some(cookie) = jar.get("sessionId") {
+        if let Ok(user) = get_user_from_cookie(cookie.clone()) {
             AuthType::Authorized(user)
         } else {
             AuthType::UnAuthorized
@@ -223,7 +234,7 @@ async fn server_fn_handler(
         move || {
             provide_context(auth.clone());
             provide_context(app_state.authorized_users.clone());
-            provide_context(cookies.clone());
+            provide_context(jar.clone());
             provide_context(app_state.project_context.clone());
             // provide_context(app_state.otp_map.clone());
         },

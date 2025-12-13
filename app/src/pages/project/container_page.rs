@@ -1,41 +1,34 @@
-use std::collections::VecDeque;
-use std::str::FromStr;
-use std::sync::Mutex;
+use crate::components::toaster::{ToastVariant, ToasterContext};
 
-use codee::binary::{BincodeSerdeCodec, FromToBytesCodec};
-use codee::string::FromToStringCodec;
-use codee::{Decoder, Encoder};
-use leptos::{
-    component, create_effect, create_node_ref, create_resource, create_server_action,
-    expect_context, prelude::*, view, For, IntoView, Transition,
-};
-use leptos_chartistry::IntoInner;
-use leptos_chartistry::{
-    AspectRatio, AxisMarker, Chart, Line, RotatedLabel, Series, TickLabels, Tooltip, XGridLine,
-    XGuideLine, YGridLine, YGuideLine,
-};
-use leptos_toaster::{Toast, ToastId, ToastVariant, Toasts};
+use leptos::prelude::*;
 use leptos_use::{use_interval_fn, utils::Pausable};
-use leptos_use::{use_websocket, UseWebSocketReturn};
-use serde::{Deserialize, Serialize};
-use tracing::warn;
+use serde::Serialize;
 use uuid::Uuid;
-use wasm_bindgen::closure::Closure;
-use wasm_bindgen::{JsCast, JsValue};
 
 use crate::api::{
     inspect_container, PauseContainer, ResumeContainer, StartContainer, StopContainer,
 };
-use crate::common::{AttachParams, TtyChunk};
+use crate::common::TtyChunk;
 use crate::utils::xterm::Terminal;
-use leptos_icons::Icon;
+use leptos_router::hooks::use_query_map;
+// use leptos_icons::Icon;
+use crate::hooks::use_socket::{use_socket, WsMessage};
+// use leptos::signal::{SignalGet, SignalWith};
+
+// Wrapper to make Terminal Send/Sync for StoredValue in WASM
+// Removed Clone derive as Terminal might not support it and StoredValue doesn't strictly need it if we don't clone the inner contents.
+struct SendTerminal(Terminal);
+unsafe impl Send for SendTerminal {}
+unsafe impl Sync for SendTerminal {}
+
+// BincodeCodec removed
 
 #[component]
 pub fn ContainerPage() -> impl IntoView {
-    let id = expect_context::<Uuid>();
+    let id = expect_context::<Signal<Uuid>>();
 
-    let container = create_resource(
-        move || id,
+    let container = Resource::new(
+        move || id.get(),
         move |id| async move {
             let result = inspect_container(id).await;
 
@@ -54,582 +47,401 @@ pub fn ContainerPage() -> impl IntoView {
         },
         5000,
     );
-    let toast_context = expect_context::<Toasts>();
-    let pause_container_action = create_server_action::<PauseContainer>();
-    create_effect(move |_| {
-        if pause_container_action.version().get() > 0 {
-            let toast_id = ToastId::new();
-            toast_context.toast(
-                view! {
-                    <Toast
-                        toast_id
-                        variant=ToastVariant::Info
-                        title=view! { "Container Paused" }.into_view()
-                    />
-                },
-                Some(toast_id),
-                None,
-            );
-            container.refetch();
+    let toast_context = expect_context::<ToasterContext>();
+    let pause_container_action = ServerAction::<PauseContainer>::new();
+    Effect::new({
+        let toast_context = toast_context.clone();
+        move |_| {
+            if pause_container_action.version().get() > 0 {
+                toast_context.toast("Container Paused", ToastVariant::Info);
+                container.refetch();
+            }
         }
     });
 
-    let resume_container_action = create_server_action::<ResumeContainer>();
-    create_effect(move |_| {
-        if resume_container_action.version().get() > 0 {
-            let toast_id = ToastId::new();
-            toast_context.toast(
-                view! {
-                    <Toast
-                        toast_id
-                        variant=ToastVariant::Info
-                        title=view! { "Container Resumed" }.into_view()
-                    />
-                },
-                Some(toast_id),
-                None,
-            );
-            container.refetch();
+    let resume_container_action = ServerAction::<ResumeContainer>::new();
+    Effect::new({
+        let toast_context = toast_context.clone();
+        move |_| {
+            if resume_container_action.version().get() > 0 {
+                toast_context.toast("Container Resumed", ToastVariant::Info);
+                container.refetch();
+            }
         }
     });
 
-    let stop_container_action = create_server_action::<StopContainer>();
-    create_effect(move |_| {
-        if stop_container_action.version().get() > 0 {
-            let toast_id = ToastId::new();
-            toast_context.toast(
-                view! {
-                    <Toast
-                        toast_id
-                        variant=ToastVariant::Info
-                        title=view! { "Container Stopped" }.into_view()
-                    />
-                },
-                Some(toast_id),
-                None,
-            );
-            container.refetch();
+    let stop_container_action = ServerAction::<StopContainer>::new();
+    Effect::new({
+        let toast_context = toast_context.clone();
+        move |_| {
+            if stop_container_action.version().get() > 0 {
+                toast_context.toast("Container Stopped", ToastVariant::Info);
+                container.refetch();
+            }
         }
     });
 
-    let start_container_action = create_server_action::<StartContainer>();
-    create_effect(move |_| {
-        if start_container_action.version().get() > 0 {
-            let toast_id = ToastId::new();
-            toast_context.toast(
-                view! {
-                    <Toast
-                        toast_id
-                        variant=ToastVariant::Info
-                        title=view! { "Container Started" }.into_view()
-                    />
-                },
-                Some(toast_id),
-                None,
-            );
-            container.refetch();
+    let start_container_action = ServerAction::<StartContainer>::new();
+    Effect::new({
+        let toast_context = toast_context.clone();
+        move |_| {
+            if start_container_action.version().get() > 0 {
+                toast_context.toast("Container Started", ToastVariant::Info);
+                container.refetch();
+            }
         }
     });
+    let query = use_query_map();
+    let sub_page = Memo::new(move |_| query.get().get("page").map(|s| s.clone()));
+    let id_val = id.get();
 
     view! {
-        <div class="p-2 text-xl">"Container"</div>
+        <div class="h-full w-full flex flex-col">
+            <div class="flex-none p-4 border-b bg-white dark:bg-gray-800 dark:border-gray-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h1 class="text-2xl font-bold dark:text-white">"Container Details"</h1>
+                    <div class="flex gap-2">
+                        <a
+                            href=move || format!("/projects/containers?id={}", id_val)
+                            class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded text-gray-700 transition-colors dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+                        >
+                            "Back to Containers"
+                        </a>
+                    </div>
+                </div>
+                <ContainerControls container_id=id_val/>
+            </div>
 
-        <Transition>
+            <div class="flex-1 overflow-hidden flex flex-col">
+               <div class="flex-none border-b bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
+                   <div class="flex gap-4 px-4">
+                       <a
+                           href=move || format!("/projects/containers?id={}&page=logs", id_val)
+                           class=move || {
+                               let active = sub_page.get().as_deref() == Some("logs");
+                               format!(
+                                   "py-2 px-1 border-b-2 transition-colors text-sm font-medium {}",
+                                   if active {
+                                       "border-blue-500 text-blue-600 dark:text-blue-400"
+                                   } else {
+                                       "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                   }
+                               )
+                           }
+                       >
+                           "Logs"
+                       </a>
+                       <a
+                           href=move || format!("/projects/containers?id={}&page=stats", id_val)
+                           class=move || {
+                               let active = sub_page.get().as_deref() == Some("stats");
+                               format!(
+                                   "py-2 px-1 border-b-2 transition-colors text-sm font-medium {}",
+                                   if active {
+                                       "border-blue-500 text-blue-600 dark:text-blue-400"
+                                   } else {
+                                       "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                   }
+                               )
+                           }
+                       >
+                           "Stats"
+                       </a>
+                       <a
+                           href=move || format!("/projects/containers?id={}&page=attach", id_val)
+                           class=move || {
+                               let active = sub_page.get().as_deref() == Some("attach");
+                               format!(
+                                   "py-2 px-1 border-b-2 transition-colors text-sm font-medium {}",
+                                   if active {
+                                       "border-blue-500 text-blue-600 dark:text-blue-400"
+                                   } else {
+                                       "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                   }
+                               )
+                           }
+                       >
+                           "Terminal"
+                       </a>
+                   </div>
+               </div>
 
-            {
-                let container = create_memo(move |_| container.get());
-                let is_running = create_memo(move |_| {
-                    container.get().map(|r| r.is_ok()).unwrap_or(false)
-                });
-                move || {
-                    if is_running.get() {
-                        let container = move || container.get().unwrap().unwrap();
-                        view! {
-                            <div class="p-2 flex gap-2 items-center flex-wrap">
-                                <div class="text-lg ">"Status"</div>
-                                <div class="text-sm px-6 py-1 rounded-full bg-slate-400 text-black">
-                                    {move || {
-                                        container()
-                                            .state
-                                            .and_then(|s| s.status)
-                                            .unwrap_or("Unknown".to_string())
-                                    }}
+               <div class="flex-1 overflow-auto p-4 bg-gray-100 dark:bg-gray-950">
+                   <ContainerSubPages id=id_val/>
+               </div>
+            </div>
+        </div>
+    }
+}
 
-                                </div>
+#[component]
+fn ContainerControls(container_id: Uuid) -> impl IntoView {
+    let inspect = Resource::new(
+        move || container_id,
+        |id| async move { inspect_container(id).await },
+    );
 
-                                <div class="flex-grow"></div>
-                                <div class="flex gap-2">
+    let start = ServerAction::<StartContainer>::new();
+    let stop = ServerAction::<StopContainer>::new();
+    let pause = ServerAction::<PauseContainer>::new();
+    let resume = ServerAction::<ResumeContainer>::new();
 
-                                    {move || {
-                                        if container().state.and_then(|state| state.running)
-                                            == Some(true)
-                                        {
-                                            view! {
-                                                {if container().state.and_then(|state| state.paused)
-                                                    == Some(true)
-                                                {
-                                                    view! {
-                                                        <button
-                                                            class="p-2 rounded bg-green-700 px-6 text-white"
-                                                            on:click=move |_| {
-                                                                resume_container_action.dispatch(ResumeContainer { id });
-                                                            }
-                                                        >
+    view! {
+        <Transition fallback=move || view! { <div class="text-sm text-gray-500">"Loading state..."</div> }>
+            {move || {
+                inspect.get().map(|res| match res {
+                    Ok(info) => {
+                         let state_opt = info.state.clone();
+                         let status = state_opt.as_ref().and_then(|s| s.status.clone()).unwrap_or("unknown".to_string());
+                         let running = status == "running";
+                         let paused = status == "paused";
 
-                                                            "Resume"
-                                                        </button>
-                                                    }
-                                                } else {
-                                                    view! {
-                                                        <button
-                                                            class="p-2 rounded bg-yellow-700 px-6 text-white"
-                                                            on:click=move |_| {
-                                                                pause_container_action.dispatch(PauseContainer { id });
-                                                            }
-                                                        >
+                         view! {
+                             <div class="flex gap-2 items-center">
+                                 <div class=format!("w-3 h-3 rounded-full {}", if running { "bg-green-500" } else { "bg-red-500" })></div>
+                                 <span class="text-sm font-medium dark:text-gray-300 uppercase mr-4">{status}</span>
 
-                                                            "Pause"
-                                                        </button>
-                                                    }
-                                                }}
+                                 {if !running {
+                                     view! {
+                                         <ActionForm action=start>
+                                             <input type="hidden" name="id" value=container_id.to_string()/>
+                                             <button type="submit" class="p-1 hover:bg-gray-100 rounded text-green-600 dark:hover:bg-gray-700">
+                                                 // <Icon icon=icondata::BsPlayFill class="w-5 h-5"/>
+                                                 "Start"
+                                             </button>
+                                         </ActionForm>
+                                     }.into_any()
+                                 } else {
+                                     view! {
+                                         <ActionForm action=stop>
+                                             <input type="hidden" name="id" value=container_id.to_string()/>
+                                             <button type="submit" class="p-1 hover:bg-gray-100 rounded text-red-600 dark:hover:bg-gray-700">
+                                                 // <Icon icon=icondata::BsStopFill class="w-5 h-5"/>
+                                                 "Stop"
+                                             </button>
+                                         </ActionForm>
+                                     }.into_any()
+                                 }}
 
-                                                <button
-                                                    class="p-2 rounded bg-red-700 px-6 text-white"
-                                                    on:click=move |_| {
-                                                        stop_container_action.dispatch(StopContainer { id });
-                                                    }
-                                                >
-
-                                                    "Stop"
-                                                </button>
-                                            }
-                                                .into_view()
-                                        } else {
-                                            view! {
-                                                <button
-                                                    class="p-2 rounded bg-green-700 px-6 text-white"
-                                                    on:click=move |_| {
-                                                        start_container_action.dispatch(StartContainer { id });
-                                                    }
-                                                >
-
-                                                    "Start"
-                                                </button>
-                                            }
-                                                .into_view()
-                                        }
-                                    }}
-
-                                </div>
-                            </div>
-                        }
-                            .into_view()
-                    } else {
-                        view! { <div>"Failed to load container status"</div> }.into_view()
+                                 {if running && !paused {
+                                     view! {
+                                         <ActionForm action=pause>
+                                             <input type="hidden" name="id" value=container_id.to_string()/>
+                                             <button type="submit" class="p-1 hover:bg-gray-100 rounded text-yellow-600 dark:hover:bg-gray-700">
+                                                 // <Icon icon=icondata::BsPauseFill class="w-5 h-5"/>
+                                                 "Pause"
+                                             </button>
+                                         </ActionForm>
+                                     }.into_any()
+                                 } else if paused {
+                                     view! {
+                                         <ActionForm action=resume>
+                                             <input type="hidden" name="id" value=container_id.to_string()/>
+                                             <button type="submit" class="p-1 hover:bg-gray-100 rounded text-yellow-600 dark:hover:bg-gray-700">
+                                                 // <Icon icon=icondata::BsPlayFill class="w-5 h-5"/>
+                                                 "Resume"
+                                             </button>
+                                         </ActionForm>
+                                     }.into_any()
+                                 } else {
+                                     ().into_any()
+                                 }}
+                             </div>
+                         }.into_any()
                     }
-                }
-            }
-            <div class="h-2"></div> <ContainerSubPages id/>
-
+                    Err(_) => view! { <span class="text-red-500">"Error loading info"</span> }.into_any(),
+                })
+            }}
         </Transition>
     }
 }
+
 #[component]
-pub fn ContainerSubPages(id: Uuid) -> impl IntoView {
-    #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-    enum ContainerPageType {
-        Logs,
-        Stats,
-        Attach,
-    }
-
-    #[derive(Clone)]
-    struct ContainerPage<'a> {
-        name: &'a str,
-        icon: icondata::Icon,
-        r#type: ContainerPageType,
-    }
-
-    let container_sub_pages = Vec::from([
-        ContainerPage {
-            name: "Logs",
-            icon: icondata::OcLogLg,
-            r#type: ContainerPageType::Logs,
-        },
-        ContainerPage {
-            name: "Stats",
-            icon: icondata::ImStatsDots,
-            r#type: ContainerPageType::Stats,
-        },
-        ContainerPage {
-            name: "Attach",
-            icon: icondata::IoTerminal,
-            r#type: ContainerPageType::Attach,
-        },
-    ]);
-    let (selected_page, set_selected_page) = create_signal(container_sub_pages[0].r#type);
+fn ContainerSubPages(id: Uuid) -> impl IntoView {
+    let query = use_query_map();
+    let page = move || {
+        query
+            .get()
+            .get("page")
+            .map(|s| s.clone())
+            .unwrap_or_else(|| "logs".to_string())
+    };
 
     view! {
-        <div class="flex border-black dark:border-white/80 border-b items-end gap-1 px-2">
-            <For
-                each=move || container_sub_pages.clone()
-                key=|page| page.r#type.clone()
-                children=move |page| {
-                    view! {
-                        <button
-                            class="p-2 border dark:border-white/80 border-black mb-[-0.05em] rounded-t-lg flex gap-2 items-center"
-                            class=(
-                                ["border-b-slate-100", "dark:border-b-black", "p-3"],
-                                move || page.r#type == selected_page.get(),
-                            )
-
-                            on:click=move |_| { set_selected_page.set(page.r#type) }
-                        >
-
-                            <Icon icon=page.icon/>
-
-                            {page.name}
-
-                        </button>
-                    }
-                }
-            />
-
+        <div>
+            {move || match page().as_str() {
+                "stats" => view! { <ContainerStats container_id=id/> }.into_any(),
+                "attach" => view! { <ContainerAttach container_id=id/> }.into_any(),
+                _ => view! { <ContainerLogs container_id=id/> }.into_any(),
+            }}
         </div>
-
-        <div class="h-2"></div>
-
-        {move || match selected_page.get() {
-            ContainerPageType::Logs => {
-                view! { <ContainerLogs id/> }
-            }
-            ContainerPageType::Stats => {
-                view! { <ContainerStats id/> }
-            }
-            ContainerPageType::Attach => {
-                view! { <ContainerAttach id/> }
-            }
-        }}
     }
 }
+
 #[component]
-pub fn ContainerStats(id: Uuid) -> impl IntoView {
-    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-    struct CpuUsage {
-        total_usage: u128,
-    }
+pub fn ContainerStats(container_id: Uuid) -> impl IntoView {
+    let socket = use_socket(&format!("/events/container/{container_id}/stats/ws"));
+    let message = socket.message;
+    let ready_state = socket.ready_state;
 
-    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-    struct CpuStats {
-        online_cpus: u32,
-        system_cpu_usage: u128,
-        cpu_usage: CpuUsage,
-    }
+    let (received_json, set_received_json) = signal(serde_json::Value::Null);
 
-    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-    struct MemoryStats {
-        limit: u128,
-        usage: u128,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-    struct Stats {
-        cpu_stats: CpuStats,
-        precpu_stats: CpuStats,
-        memory_stats: MemoryStats,
-        read: chrono::DateTime<chrono::Utc>,
-    }
-
-    // Create server signal
-    let UseWebSocketReturn {
-        // ready_state,
-        message,
-        // message_bytes,
-        // send,
-        // send_bytes,
-        // open,
-        // close,
-        ..
-    } = use_websocket::<String, String, FromToStringCodec>(&format!(
-        "/events/container/{id}/stats/ws"
-    ));
-
-    let (stats_vecdq, _set_stats_vecdq) =
-        create_signal(std::rc::Rc::new(Mutex::new(VecDeque::with_capacity(30))));
-    let (stats_vec, set_stats_vec) = create_signal(Vec::new());
-
-    let (received_json, set_received_json) = create_signal(serde_json::Value::Null);
-    create_effect(move |_| {
-        let message = message.get();
-        if let Some(message) = message {
-            let patch = serde_json::from_str::<json_patch::Patch>(&message);
-            match patch {
-                Ok(patch) => {
-                    let mut data = received_json.get_untracked();
-
-                    if let Err(_err) = json_patch::patch(&mut data, &patch) {
-                        warn!("Json patch failed")
-                    } else {
-                        set_received_json.set(data.clone());
-                        let stats = serde_json::from_value::<Stats>(data);
-                        match stats {
-                            Ok(stats) => {
-                                let data = stats_vecdq.get_untracked();
-                                let lock = data.lock();
-                                match lock {
-                                    Ok(mut data) => {
-                                        if data.len() >= 30 {
-                                            data.pop_front();
-                                        }
-                                        data.push_back(stats);
-                                        let data_arranged = data.make_contiguous();
-                                        let data_vec = Vec::from(data_arranged);
-                                        set_stats_vec.set(data_vec);
-                                    }
-                                    Err(_) => {
-                                        warn!("Cant lock dq");
-                                    }
-                                }
-                            }
-                            Err(err) => {
-                                warn!("Failed to parse json to stats {err:?}")
-                            }
+    Effect::new(move |_| {
+        message.with(|msg| {
+            if let Some(WsMessage::Text(text)) = msg {
+                if let Ok(patch) = serde_json::from_str::<json_patch::Patch>(text) {
+                    set_received_json.update(|data| {
+                        if let Err(err) = json_patch::patch(data, &patch) {
+                            tracing::warn!("Json patch failed {err:?}");
                         }
-                    }
-                }
-                Err(err) => {
-                    tracing::warn!("Received data not json-patch {err:?}")
+                    });
                 }
             }
-        }
+        });
     });
-
-    let cpu_series = Series::new(|data: &Stats| data.read).line(Line::new(|data: &Stats| {
-        let cpu_delta =
-            data.cpu_stats.cpu_usage.total_usage - data.precpu_stats.cpu_usage.total_usage;
-        let system_cpu_delta = data.cpu_stats.system_cpu_usage - data.precpu_stats.system_cpu_usage;
-
-        let usage_perc = ((cpu_delta as f64 / system_cpu_delta as f64) as f64)
-            * (data.cpu_stats.online_cpus as f64)
-            * 100_f64;
-        usage_perc
-    }));
-
-    let memory_series = Series::new(|data: &Stats| data.read).line(Line::new(|data: &Stats| {
-        let usage_perc =
-            ((data.memory_stats.usage as f64 / data.memory_stats.limit as f64) as f64) * 100_f64;
-        usage_perc
-    }));
 
     view! {
         <div class="bg-white p-2 rounded-md border text-black">
-            <Chart
-                aspect_ratio=AspectRatio::from_env_width(300.0)
-                series=cpu_series
-                data=stats_vec
-
-                // Decorate our chart
-                top=RotatedLabel::middle("CPU Usage")
-                left=TickLabels::aligned_floats()
-                bottom=TickLabels::timestamps()
-                // bottom=Legend::end()
-                inner=[
-                    AxisMarker::left_edge().into_inner(),
-                    AxisMarker::bottom_edge().into_inner(),
-                    XGridLine::default().into_inner(),
-                    YGridLine::default().into_inner(),
-                    YGuideLine::over_mouse().into_inner(),
-                    XGuideLine::over_data().into_inner(),
-                ]
-
-                tooltip=Tooltip::left_cursor()
-            />
-        </div>
-        <div class="h-6"></div>
-        <div class="bg-white p-2 rounded-md border text-black">
-            <Chart
-                aspect_ratio=AspectRatio::from_env_width(300.0)
-                series=memory_series
-                data=stats_vec
-
-                // Decorate our chart
-                top=RotatedLabel::middle("Memory Usage")
-                left=TickLabels::aligned_floats()
-                bottom=TickLabels::timestamps()
-                // bottom=Legend::end()
-                inner=[
-                    AxisMarker::left_edge().into_inner(),
-                    AxisMarker::bottom_edge().into_inner(),
-                    XGridLine::default().into_inner(),
-                    YGridLine::default().into_inner(),
-                    YGuideLine::over_mouse().into_inner(),
-                    XGuideLine::over_data().into_inner(),
-                ]
-
-                tooltip=Tooltip::left_cursor()
-            />
+           <div class="p-4">
+               <h3 class="text-lg font-bold">"Raw Stats"</h3>
+                <div class="text-sm text-gray-500 mb-2">
+                    "Status: " {move || ready_state.get().to_string()}
+                </div>
+               <pre class="text-xs">
+                   {move || serde_json::to_string_pretty(&received_json.get()).unwrap_or_default()}
+               </pre>
+           </div>
         </div>
     }
 }
 
 #[component]
-pub fn ContainerLogs(id: Uuid) -> impl IntoView {
-    // Create server signal
-    let UseWebSocketReturn {
-        // ready_state,
-        // message,
-        message,
-        // send,
-        // send_bytes,
-        // open,
-        // close,
-        ..
-    } = use_websocket::<TtyChunk, TtyChunk, BincodeSerdeCodec>(&format!(
-        "/events/container/{id}/logs/ws"
+pub fn ContainerLogs(container_id: Uuid) -> impl IntoView {
+    let socket = use_socket(&format!("/events/container/{container_id}/logs/ws"));
+    let message = socket.message;
+    let ready_state = socket.ready_state;
+
+    let (logs, set_logs) = signal(Vec::<String>::new());
+
+    Effect::new(move |_| {
+        message.with(|msg| {
+            if let Some(WsMessage::Binary(bytes)) = msg {
+                if let Ok(chunk) = bincode::deserialize::<TtyChunk>(&bytes) {
+                    match chunk {
+                        TtyChunk::StdOut(bytes) | TtyChunk::StdErr(bytes) => {
+                            let s = String::from_utf8_lossy(&bytes).to_string();
+                            set_logs.update(|l| l.push(s));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        });
+    });
+
+    view! {
+        <div class="bg-black text-white p-4 font-mono text-xs h-full overflow-auto rounded">
+            <div class="text-gray-500 mb-2">
+                "Status: " {move || ready_state.get().to_string()}
+            </div>
+            {move || logs.get().into_iter().map(|line| view! { <div>{line}</div> }).collect_view()}
+        </div>
+    }
+}
+
+#[component]
+pub fn ContainerAttach(container_id: Uuid) -> impl IntoView {
+    use wasm_bindgen::JsCast;
+
+    let div_ref: NodeRef<leptos::html::Div> = NodeRef::new();
+    let terminal = StoredValue::new(None::<SendTerminal>);
+
+    let socket = use_socket(&format!(
+        "/events/container/{container_id}/attach/ws?command=sh&size_width=80&size_height=24"
     ));
+    let message = socket.message;
+    let ready_state = socket.ready_state;
+    // Keep send callback alive or just use it?
+    // We clone it into closure below.
 
-    let (output, set_output) = create_signal(String::new());
-    let div_ref = create_node_ref::<leptos::html::Div>();
-
-    create_effect(move |_| {
-        let message = message.get();
-        if let Some(message) = message {
-            let string = std::str::from_utf8(message.as_ref());
-            if let Ok(string) = string {
-                if let Ok(html) = ansi_to_html::convert(&string) {
-                    let mut data = output.get_untracked();
-                    data.push_str(&html);
-                    if let Some(node) = div_ref.get_untracked() {
-                        node.set_inner_html(&data);
-                    }
-                    set_output.set(data);
-                }
-            }
-        }
-    });
-
-    view! {
-        <div
-            _ref=div_ref
-            class="bg-white p-2 rounded-md border text-black whitespace-break-spaces max-h-80 overflow-auto"
-        ></div>
-    }
-}
-
-#[component]
-pub fn ContainerAttach(id: Uuid) -> impl IntoView {
-    let div_ref = create_node_ref::<leptos::html::Div>();
-
-    let (terminal, set_terminal) = create_signal(Option::<std::rc::Rc<Terminal>>::None);
-
-    create_effect(move |_| {
-        if let Some(terminal) = terminal.get() {
-            let params = AttachParams {
-                command: "/usr/bin/bash".to_string(),
-                size_height: terminal.rows() as u64,
-                size_width: terminal.cols() as u64,
-            };
-            let params = serde_urlencoded::to_string(&params).unwrap_or_default();
-            // Create server signal
-            let UseWebSocketReturn {
-                // ready_state,
-                // message,
-                message,
-                send,
-                // send_bytes,
-                // open,
-                // close,
-                ..
-            } = use_websocket::<String, TtyChunk, TermCodec>(&format!(
-                "/events/container/{id}/attach/ws?{params}"
-            ));
-
-            let closure = Closure::wrap(Box::new(move |data: JsValue| {
-                let event = data.as_string();
-                if let Some(event) = event {
-                    send(&event);
-                } else {
-                    tracing::info!("Data is not string {data:?}");
-                }
-            }) as Box<dyn Fn(JsValue)>);
-
-            terminal.onData(closure.as_ref().unchecked_ref());
-            closure.forget();
-            let vt = vt100::Parser::new(terminal.rows() as u16, terminal.cols() as u16, 0);
-            // let screen = vt.screen().clone(); TODO: use for diff
-            let vt_rc = std::rc::Rc::new(Mutex::new(vt));
-            // let screen = std::rc::Rc::new(Mutex::new(screen)); // TODO: use for diff
-
-            create_effect(move |_| {
-                let message = message.get();
-                if let Some(message) = message {
-                    if let Ok(mut vt) = vt_rc.lock() {
-                        vt.process(message.as_ref());
-                        let new_screen = vt.screen().clone();
-                        let contents = new_screen.contents_formatted(); // TODO: Remove vt100 or use diff
-                                                                        // *screen = new_screen;
-                        let contents_str = std::str::from_utf8(&contents);
-                        if let Ok(contents_str) = contents_str {
-                            let uint8_array = contents_str.into();
-                            terminal.clear();
-                            terminal.write(&uint8_array);
-                        } else {
-                            let uint8_array =
-                                unsafe { js_sys::Uint8Array::view(contents.as_ref()) };
-                            terminal.clear();
-                            terminal.write(&uint8_array);
+    // Handle incoming messages from WS -> Terminal
+    Effect::new(move |_| {
+        message.with(|msg| {
+            terminal.update_value(|term_wrap| {
+                if let Some(wrap) = term_wrap {
+                    if let Some(WsMessage::Binary(bytes)) = msg {
+                        if let Ok(chunk) = bincode::deserialize::<TtyChunk>(&bytes) {
+                            let data = match chunk {
+                                TtyChunk::StdOut(b) | TtyChunk::StdErr(b) => b,
+                                _ => return, // Ignore exits/resizes for now
+                            };
+                            if !data.is_empty() {
+                                let uint8_arr = js_sys::Uint8Array::from(data.as_slice());
+                                wrap.0.write(&uint8_arr.into());
+                            }
                         }
                     }
                 }
             });
-        }
+        });
     });
 
     view! {
-        <link href="/css/xterm.min.css " rel="stylesheet"/>
-        <script
-            src="/js/xterm.min.js"
-            on:load=move |_| {
-                #[derive(Serialize)]
-                struct TerminalOptions {
-                    scrollback: u64,
-                }
-                let options = serde_wasm_bindgen::to_value(&TerminalOptions { scrollback: 0 });
-                if let Ok(options) = options {
-                    let terminal = Terminal::new(&options);
-                    if let Some(div) = div_ref.get_untracked() {
-                        tracing::info!("Open terminal");
-                        terminal.open(&div);
+        <div>
+            <link href="/css/xterm.min.css " rel="stylesheet"/>
+            <div class="mb-2">"Status: " {move || ready_state.get().to_string()}</div>
+            <script
+                src="/js/xterm.min.js"
+                on:load=move |_| {
+                    #[derive(Serialize)]
+                    struct TerminalOptions {
+                        scrollback: u64,
+                        #[serde(rename = "cursorBlink")]
+                        cursor_blink: bool,
                     }
-                    use std::rc::Rc;
-                    set_terminal.set(Some(Rc::new(terminal)));
-                } else {
-                    tracing::warn!("Cant convert terminalOptions");
+                    let options = serde_wasm_bindgen::to_value(&TerminalOptions {
+                        scrollback: 1000,
+                        cursor_blink: true
+                    });
+
+                    if let Ok(options) = options {
+                        let term = Terminal::new(&options);
+                        if let Some(div) = div_ref.get_untracked() {
+                            term.open(&div);
+
+                            // Setup onData callback
+                             let send = socket.send_text.clone(); // use_socket return fields are Boxed Fns? No, Box<dyn Fn>.
+                             // wait, UseSocketReturn fields are Box<dyn Fn>.
+                             // We can't clone Box<dyn Fn>.
+                             // We need to wrap them in Rc or Arc if we want to clone?
+                             // UseSocketReturn should use Rc<dyn Fn> or similar?
+                             // Box is unique.
+                             // Ah, I made UseSocketReturn fields Box<dyn ...>. That was a mistake for cloning.
+                             // I should assume they are captured?
+                             // But I need to move them into `on:load` closure which is `move |_|`.
+                             // And then move into `Closure::wrap`.
+
+                             // If `UseSocketReturn` fields are not Clone, I can't use them multiple times or move easily.
+                             // I should update `use_socket.rs` to use `Rc` or `Arc`.
+                             let callback = wasm_bindgen::closure::Closure::wrap(Box::new(move |data: wasm_bindgen::JsValue| {
+                                  if let Some(input) = data.as_string() {
+                                      send(&input);
+                                  }
+                             }) as Box<dyn FnMut(wasm_bindgen::JsValue)>);
+
+                             term.onData(callback.as_ref().unchecked_ref());
+                             callback.forget();
+
+                             terminal.set_value(Some(SendTerminal(term)));
+                        }
+                    } else {
+                        tracing::warn!("Cant convert terminalOptions");
+                    }
                 }
-            }
-        >
-        </script>
+            >
+            </script>
 
-        <div _ref=div_ref class=""></div>
-    }
-}
-
-struct TermCodec;
-
-impl<T: ToString> Encoder<T> for TermCodec {
-    type Error = ();
-    type Encoded = String;
-
-    fn encode(val: &T) -> Result<String, Self::Error> {
-        Ok(val.to_string())
-    }
-}
-
-impl<T: serde::de::DeserializeOwned> Decoder<T> for TermCodec {
-    type Error = bincode::Error;
-    type Encoded = [u8];
-
-    fn decode(val: &Self::Encoded) -> Result<T, Self::Error> {
-        bincode::deserialize(val)
+            <div node_ref=div_ref class="p-2 bg-black"></div>
+        </div>
     }
 }

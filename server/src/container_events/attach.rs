@@ -8,13 +8,13 @@ use axum::{
     },
     response::Response,
 };
+use axum_extra::extract::cookie::CookieJar;
 use docker_api::{
     opts::{ConsoleSize, ExecCreateOpts, ExecStartOpts},
     Container,
 };
 use futures::{AsyncWriteExt, SinkExt, StreamExt};
 use http::StatusCode;
-use tower_cookies::Cookies;
 use tracing::warn;
 use uuid::Uuid;
 
@@ -24,12 +24,12 @@ use super::ensure_authorized_user;
 
 pub async fn container_attach_ws(
     State(app_state): State<AppState>,
-    cookies: Cookies,
+    jar: CookieJar,
     Path(project_id): Path<Uuid>,
     Query(attach_params): Query<AttachParams>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, (axum::http::StatusCode, String)> {
-    ensure_authorized_user(cookies)?;
+    ensure_authorized_user(jar)?;
     let container = {
         let project = app_state
             .project_context
@@ -147,7 +147,7 @@ async fn handle_attach_socket(
                             Ok(item) => {
                                 let item = TtyChunk::from(item);
                                 if let Ok(serialized_data) = bincode::serialize(&item) {
-                                    if let Err(err) = sender_sock.send(Message::Binary(serialized_data)).await {
+                                    if let Err(err) = sender_sock.send(Message::Binary(serialized_data.into())).await {
                                         warn!("Failed to send msg {err:?}");
                                     }
                                 }

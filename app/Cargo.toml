@@ -3,6 +3,10 @@ name = "app"
 version = "0.1.0"
 edition = "2021"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+uuid = { workspace = true, features = ["js"] }
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -10,9 +14,11 @@ leptos.workspace = true
 leptos_meta.workspace = true
 leptos_router.workspace = true
 leptos_axum = { workspace = true, optional = true }
-leptos-use.workspace = true
+leptos-use = "0.15.0"
+leptos-chartistry = "0.2.2"
 
 http.workspace = true
+codee.workspace = true
 cfg-if.workspace = true
 thiserror.workspace = true
 
@@ -26,7 +32,7 @@ anyhow.workspace = true
 serde.workspace = true
 tracing.workspace = true
 
-tower-cookies = { workspace = true, optional = true }
+cookie = { workspace = true, optional = true }
 
 aes-gcm-siv = { workspace = true, optional = true }
 rand = { workspace = true }
@@ -45,11 +51,8 @@ docker-api-stubs = { workspace = true }
 
 chrono.workspace = true
 
-leptos_sse = { workspace = true }
 
-leptos-chartistry.workspace = true
 web-sys.workspace = true
-codee.workspace = true
 
 json-patch.workspace = true
 
@@ -69,7 +72,6 @@ serde_path_to_error.workspace = true
 
 smallvec.workspace = true
 
-leptos_toaster.workspace = true
 slotmap.workspace = true
 
 
@@ -77,23 +79,17 @@ slotmap.workspace = true
 default = []
 hydrate = [
     "leptos/hydrate",
-    "leptos_meta/hydrate",
-    "leptos_router/hydrate",
-    "leptos_toaster/hydrate",
 ]
 ssr = [
     "leptos/ssr",
-    "leptos_meta/ssr",
-    "leptos_router/ssr",
     "leptos-use/ssr",
     "dep:leptos_axum",
     "dep:pingora",
     "dep:once_cell",
     "dep:tokio",
-    "dep:tower-cookies",
+    "dep:cookie",
     "dep:aes-gcm-siv",
     "dep:base64",
     "dep:time",
     "dep:docker-api",
-    "leptos_toaster/ssr",
 ]

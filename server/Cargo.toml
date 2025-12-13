@@ -11,7 +11,7 @@ edition = "2021"
 app = { path = "../app", default-features = false, features = ["ssr"] }
 leptos = { workspace = true, features = ["ssr"] }
 leptos_axum.workspace = true
-leptos_router.workspace = true
+leptos_router = { workspace = true, features = ["ssr"] }
 
 axum.workspace = true
 tracing-subscriber.workspace = true
@@ -36,7 +36,8 @@ openssl.workspace = true
 
 uuid.workspace = true
 
-tower-cookies.workspace = true
+axum-extra = { version = "0.10", features = ["cookie"] }
+cookie = "0.18"
 
 aes-gcm-siv = { workspace = true }
 rand.workspace = true
@@ -59,7 +60,6 @@ chrono.workspace = true
 
 dotenv.workspace = true
 
-leptos_sse = { workspace = true, features = ["axum", "ssr"] }
 
 async-stream.workspace = true
 tokio-stream.workspace = true

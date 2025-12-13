@@ -1,2 +1,2 @@
 [toolchain]
-channel = "nightly-2024-07-19" #pinning nightly for cache
+channel = "nightly-2025-12-10" #pinning nightly for cache

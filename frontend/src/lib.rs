@@ -20,5 +20,5 @@ pub fn hydrate() {
         .without_time()
         .init();
 
-    leptos::mount_to_body(App);
+    leptos::mount::hydrate_body(App);
 }

@@ -17,3 +17,6 @@ tracing-subscriber-wasm.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
 wasm-bindgen.workspace = true
+getrandom = { workspace = true, features = ["wasm_js"] }
+getrandom-02 = { package = "getrandom", version = "0.2", features = ["js"] }
+uuid = { workspace = true, features = ["js"] }

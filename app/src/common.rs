@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use unicase::UniCase;
 use uuid::Uuid;
 
-#[derive(Serialize, Clone, PartialEq)]
+#[derive(Serialize, Clone, PartialEq, Debug)]
 pub struct Project {
     pub id: Uuid,
     pub name: String,
@@ -15,7 +15,7 @@ pub struct Project {
     pub project_type: ProjectType,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum ProjectType {
     PortForward(PortForward),
     Container {
@@ -27,13 +27,13 @@ pub enum ProjectType {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct SupportContainer {
     pub image: String,
     pub container: Container,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct PortForward {
     pub port: u16,
 
@@ -111,9 +111,9 @@ impl ProjectType {
             ProjectType::PortForward(_) => None,
             ProjectType::Container {
                 primary_container,
-                support_containers,
-                tokens,
-                exposed_ports,
+                support_containers: _,
+                tokens: _,
+                exposed_ports: _,
             } => Some(primary_container),
         }
     }
@@ -125,7 +125,7 @@ pub struct EnvironmentVar {
     pub val: String,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct Container {
     pub env_vars: smallvec::SmallVec<[EnvironmentVar; 4]>,
     #[cfg(feature = "ssr")]
@@ -140,7 +140,7 @@ pub struct Token {
     pub description: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[cfg(feature = "ssr")]
 pub enum ContainerStatus {
     None,
@@ -252,8 +252,6 @@ impl<'de> Deserialize<'de> for Container {
     {
         #[derive(Clone, Deserialize)]
         pub struct TmpContainer {
-            // pub exposed_ports: smallvec::SmallVec<[ExposedPort; 4]>,
-            // pub tokens: HashMap<String, Token>,
             pub env_vars: smallvec::SmallVec<[EnvironmentVar; 4]>,
         }
 
@@ -351,7 +349,7 @@ impl<'de> Deserialize<'de> for Project {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub enum SSLProvisioning {
     NotProvisioned,
     Provisioning,
@@ -398,7 +396,7 @@ impl DomainStatus {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct DomainStatusFields {
     pub ssl_provision: SSLProvisioning,
 }
@@ -412,7 +410,7 @@ impl From<DomainStatus> for DomainStatusFields {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Debug)]
 pub struct SSlData {
     #[cfg(feature = "ssr")]
     #[serde(skip)]
