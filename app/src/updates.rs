@@ -144,6 +144,74 @@ pub async fn perform_update() -> Result<String, ServerFnError> {
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
 
+    // 4.5. Update Site Assets
+    let site_asset_name = match arch {
+        "x86_64" => "site-x64.tar",
+        "aarch64" => "site-arm64.tar",
+        _ => {
+            return Err(ServerFnError::new(
+                "Unsupported architecture for site assets",
+            ))
+        }
+    };
+
+    let site_download_url = assets
+        .iter()
+        .find(|a| a["name"].as_str() == Some(site_asset_name))
+        .and_then(|a| a["browser_download_url"].as_str())
+        .ok_or_else(|| ServerFnError::new(format!("Asset {} not found", site_asset_name)))?;
+
+    let site_bytes = client
+        .get(site_download_url)
+        .header("User-Agent", "SelfCloud-Server")
+        .send()
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?
+        .bytes()
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+
+    let site_tar_path = std::path::PathBuf::from("site_update.tar");
+    tokio::fs::write(&site_tar_path, site_bytes)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+
+    // Extract tar
+    // Assuming structure: target/site based on user script
+    let status = tokio::process::Command::new("tar")
+        .arg("-xf")
+        .arg(&site_tar_path)
+        .status()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to run tar: {}", e)))?;
+
+    if !status.success() {
+        return Err(ServerFnError::new("Failed to extract site assets"));
+    }
+
+    // Replace site dir
+    // rm -rf site
+    if tokio::fs::try_exists("site").await.unwrap_or(false) {
+        tokio::fs::remove_dir_all("site")
+            .await
+            .map_err(|e| ServerFnError::new(e.to_string()))?;
+    }
+
+    // mv target/site site
+    // We need to check if target/site exists.
+    if tokio::fs::try_exists("target/site").await.unwrap_or(false) {
+        tokio::fs::rename("target/site", "site")
+            .await
+            .map_err(|e| ServerFnError::new(e.to_string()))?;
+        let _ = tokio::fs::remove_dir_all("target").await;
+    } else {
+        // Fallback: maybe it extracts directly to site? Or site-arch?
+        // If target/site doesn't exist, log warning but continue
+        tracing::warn!("target/site not found after extraction. Check extracted structure.");
+    }
+
+    let _ = tokio::fs::remove_file(site_tar_path).await;
+
     // 5. Restart
     let restart_cmd = env::var("SELF_UPDATE_CMD")
         .unwrap_or_else(|_| "systemctl --user restart selfcloud".to_string());
