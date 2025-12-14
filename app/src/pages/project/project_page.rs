@@ -321,7 +321,7 @@ pub fn GeneralSettings() -> impl IntoView {
                         match project_type {
                             ProjectType::PortForward(port) => {
                                 view! {
-                                    <Form action=UpdateProjectPort::url()>
+                                    <ActionForm action=update_port_action>
                                         <div class="text-md">"Port"</div>
                                         <input
                                             name="id"
@@ -343,7 +343,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                             value="Update"
                                             class="cursor-pointer block border p-2 px-10 rounded bg-slate-800 text-white disabled:cursor-no-drop disabled:bg-slate-200 disabled:text-black dark:disabled:bg-white/20 dark:disabled:text-white dark:border-none dark:bg-white/90 dark:text-black"
                                         />
-                                    </Form>
+                                    </ActionForm>
                                 }
                                     .into_any()
                             }
@@ -368,7 +368,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                     map
                                 });
                                 view! {
-                                    <Form action=UpdateProjectImage::url()>
+                                    <ActionForm action=update_image_action>
                                         <input
                                             name="id"
                                             type="hidden"
@@ -587,7 +587,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                             value="Update"
                                             class="cursor-pointer block border p-2 px-10 rounded bg-slate-800 text-white disabled:cursor-no-drop disabled:bg-slate-200 disabled:text-black dark:disabled:bg-white/20 dark:disabled:text-white dark:border-none dark:bg-white/90 dark:text-black"
                                         />
-                                    </Form>
+                                    </ActionForm>
                                 }
                                     .into_any()
                             }
@@ -641,7 +641,7 @@ pub fn DomainsList() -> impl IntoView {
         <div class="p-2 text-xl">"Domains"</div>
 
         <div class="p-2">
-            <Form action=AddProjectDomain::url()>
+            <ActionForm action=add_domain_action>
                 <div class="w-full rounded-md flex gap-5">
                     <input type="hidden" name="id" prop:value=move || id.get().to_string()/>
                     <input
@@ -663,7 +663,7 @@ pub fn DomainsList() -> impl IntoView {
                         prop:disabled=move || new_domain.get().is_empty()
                     />
                 </div>
-            </Form>
+            </ActionForm>
         </div>
 
         <Transition>

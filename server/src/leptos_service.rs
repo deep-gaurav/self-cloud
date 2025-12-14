@@ -35,6 +35,8 @@ use crate::{
     },
     fileserv::file_and_error_handler,
     image_uploader,
+    system_monitor::{process_stats_ws, system_stats_ws},
+    terminal::terminal_ws,
     tls_gen::{acme_handler, TLSState},
 };
 
@@ -132,6 +134,9 @@ async fn run_main(tls_state: TLSState, mut context: ProjectContext) {
         .route("/events/container/{id}/stats/ws", get(container_stats_ws))
         .route("/events/container/{id}/logs/ws", get(container_logs_ws))
         .route("/events/container/{id}/attach/ws", get(container_attach_ws))
+        .route("/events/terminal/ws", get(terminal_ws))
+        .route("/events/system/stats/ws", get(system_stats_ws))
+        .route("/events/system/processes/ws", get(process_stats_ws))
         .fallback(file_and_error_handler)
         .with_state(app_state)
         .layer(compression);

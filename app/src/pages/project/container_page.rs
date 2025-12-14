@@ -2,24 +2,16 @@ use crate::components::toaster::{ToastVariant, ToasterContext};
 
 use leptos::prelude::*;
 use leptos_use::{use_interval_fn, utils::Pausable};
-use serde::Serialize;
 use uuid::Uuid;
 
 use crate::api::{
     inspect_container, PauseContainer, ResumeContainer, StartContainer, StopContainer,
 };
 use crate::common::TtyChunk;
-use crate::utils::xterm::Terminal;
 use leptos_router::hooks::use_query_map;
 // use leptos_icons::Icon;
 use crate::hooks::use_socket::{use_socket, WsMessage};
 // use leptos::signal::{SignalGet, SignalWith};
-
-// Wrapper to make Terminal Send/Sync for StoredValue in WASM
-// Removed Clone derive as Terminal might not support it and StoredValue doesn't strictly need it if we don't clone the inner contents.
-struct SendTerminal(Terminal);
-unsafe impl Send for SendTerminal {}
-unsafe impl Sync for SendTerminal {}
 
 // BincodeCodec removed
 
@@ -351,97 +343,14 @@ pub fn ContainerLogs(container_id: Uuid) -> impl IntoView {
 
 #[component]
 pub fn ContainerAttach(container_id: Uuid) -> impl IntoView {
-    use wasm_bindgen::JsCast;
-
-    let div_ref: NodeRef<leptos::html::Div> = NodeRef::new();
-    let terminal = StoredValue::new(None::<SendTerminal>);
-
-    let socket = use_socket(&format!(
-        "/events/container/{container_id}/attach/ws?command=sh&size_width=80&size_height=24"
-    ));
-    let message = socket.message;
-    let ready_state = socket.ready_state;
-    // Keep send callback alive or just use it?
-    // We clone it into closure below.
-
-    // Handle incoming messages from WS -> Terminal
-    Effect::new(move |_| {
-        message.with(|msg| {
-            terminal.update_value(|term_wrap| {
-                if let Some(wrap) = term_wrap {
-                    if let Some(WsMessage::Binary(bytes)) = msg {
-                        if let Ok(chunk) = bincode::deserialize::<TtyChunk>(&bytes) {
-                            let data = match chunk {
-                                TtyChunk::StdOut(b) | TtyChunk::StdErr(b) => b,
-                                _ => return, // Ignore exits/resizes for now
-                            };
-                            if !data.is_empty() {
-                                let uint8_arr = js_sys::Uint8Array::from(data.as_slice());
-                                wrap.0.write(&uint8_arr.into());
-                            }
-                        }
-                    }
-                }
-            });
-        });
-    });
+    use crate::components::terminal::TerminalComponent;
+    let url = move || {
+        format!(
+            "/events/container/{container_id}/attach/ws?command=sh&size_width=80&size_height=24"
+        )
+    };
 
     view! {
-        <div>
-            <link href="/css/xterm.min.css " rel="stylesheet"/>
-            <div class="mb-2">"Status: " {move || ready_state.get().to_string()}</div>
-            <script
-                src="/js/xterm.min.js"
-                on:load=move |_| {
-                    #[derive(Serialize)]
-                    struct TerminalOptions {
-                        scrollback: u64,
-                        #[serde(rename = "cursorBlink")]
-                        cursor_blink: bool,
-                    }
-                    let options = serde_wasm_bindgen::to_value(&TerminalOptions {
-                        scrollback: 1000,
-                        cursor_blink: true
-                    });
-
-                    if let Ok(options) = options {
-                        let term = Terminal::new(&options);
-                        if let Some(div) = div_ref.get_untracked() {
-                            term.open(&div);
-
-                            // Setup onData callback
-                             let send = socket.send_text.clone(); // use_socket return fields are Boxed Fns? No, Box<dyn Fn>.
-                             // wait, UseSocketReturn fields are Box<dyn Fn>.
-                             // We can't clone Box<dyn Fn>.
-                             // We need to wrap them in Rc or Arc if we want to clone?
-                             // UseSocketReturn should use Rc<dyn Fn> or similar?
-                             // Box is unique.
-                             // Ah, I made UseSocketReturn fields Box<dyn ...>. That was a mistake for cloning.
-                             // I should assume they are captured?
-                             // But I need to move them into `on:load` closure which is `move |_|`.
-                             // And then move into `Closure::wrap`.
-
-                             // If `UseSocketReturn` fields are not Clone, I can't use them multiple times or move easily.
-                             // I should update `use_socket.rs` to use `Rc` or `Arc`.
-                             let callback = wasm_bindgen::closure::Closure::wrap(Box::new(move |data: wasm_bindgen::JsValue| {
-                                  if let Some(input) = data.as_string() {
-                                      send(&input);
-                                  }
-                             }) as Box<dyn FnMut(wasm_bindgen::JsValue)>);
-
-                             term.onData(callback.as_ref().unchecked_ref());
-                             callback.forget();
-
-                             terminal.set_value(Some(SendTerminal(term)));
-                        }
-                    } else {
-                        tracing::warn!("Cant convert terminalOptions");
-                    }
-                }
-            >
-            </script>
-
-            <div node_ref=div_ref class="p-2 bg-black"></div>
-        </div>
+        <TerminalComponent url=url()/>
     }
 }

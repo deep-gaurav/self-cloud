@@ -537,3 +537,40 @@ pub struct UpdateStatus {
     pub remote_build_time: String,
     pub update_available: bool,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SystemStats {
+    pub cpu_usage: f32,
+    pub total_memory: u64,
+    pub used_memory: u64,
+    pub total_swap: u64,
+    pub used_swap: u64,
+    pub disks: Vec<DiskInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DiskInfo {
+    pub name: String,
+    pub mount_point: String,
+    pub total_space: u64,
+    pub available_space: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ProcessInfo {
+    pub pid: u32,
+    pub name: String,
+    pub cpu_usage: f32,
+    pub memory: u64,
+    pub user_id: Option<String>,
+    pub status: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FileInfo {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub size: u64,
+    pub modified: Option<u64>,
+}

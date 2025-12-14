@@ -16,6 +16,8 @@ mod fileserv;
 mod gateway;
 mod image_uploader;
 mod leptos_service;
+mod system_monitor;
+mod terminal;
 mod tls_gen;
 
 // main.rs

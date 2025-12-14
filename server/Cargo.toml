@@ -74,3 +74,14 @@ chrono = "0.4"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"
+
+[dependencies.sysinfo]
+version = "0.30"
+
+[dependencies.portable-pty]
+version = "0.8"
+
+[dependencies.tokio-util]
+version = "0.7"
+features = ["io"]
+

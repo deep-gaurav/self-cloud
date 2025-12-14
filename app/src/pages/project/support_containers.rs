@@ -81,7 +81,7 @@ pub fn SupportContainers() -> impl IntoView {
 
                                     </div>
                                     <div class="h-2"></div>
-                                    <Form action=SetSupportContainers::url()>
+                                    <ActionForm action=update_support_container_action>
 
                                         <input
                                             name="id"
@@ -237,7 +237,7 @@ pub fn SupportContainers() -> impl IntoView {
                                             class="cursor-pointer block border p-2 px-10 rounded bg-slate-800 text-white disabled:cursor-no-drop disabled:bg-slate-200 disabled:text-black dark:disabled:bg-white/20 dark:disabled:text-white dark:border-none dark:bg-white/90 dark:text-black"
                                         />
 
-                                    </Form>
+                                    </ActionForm>
                                 }
                                     .into_any()
                             }

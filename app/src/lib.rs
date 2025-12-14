@@ -32,6 +32,7 @@ pub mod components;
 #[cfg(feature = "ssr")]
 pub mod context;
 pub mod error_template;
+pub mod file_manager;
 pub mod hooks;
 pub mod pages;
 pub mod updates;
