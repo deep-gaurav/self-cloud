@@ -128,7 +128,7 @@ pub fn ProjectPage() -> impl IntoView {
 
                             key=|p| p.path
                             children=move |m| {
-                                let target_path = format!("/project/{}{}", id.get(), m.path);
+                                let target_path = format!("/projects/{}{}", id.get(), m.path);
                                 let target_path_memo = target_path.clone();
                                 let is_active = Memo::new(move |_| {
                                     location.pathname.get() == target_path_memo

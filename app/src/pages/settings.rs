@@ -2,7 +2,7 @@ use crate::components::nav_bar::NavBar;
 use crate::AuthCheck;
 use leptos::prelude::*;
 
-use crate::common::UpdateStatus;
+// use crate::common::UpdateStatus;
 use crate::updates::{check_update, perform_update};
 
 #[component]

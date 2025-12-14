@@ -11,8 +11,11 @@ use crate::pages::home::HomePage;
 use crate::pages::project::container_page::ContainerPage;
 use crate::pages::project::settings::ProjectSettings;
 use crate::pages::project::support_containers::SupportContainers;
-use crate::pages::project::{project_page::ProjectPage, ProjectsHome, ProjectsList};
-use crate::pages::settings::Settings;
+use crate::pages::project::{
+    project_page::{DomainsList, ProjectPage},
+    ProjectsHome, ProjectsList,
+};
+// use crate::pages::settings::Settings;
 
 use leptos::prelude::*;
 use leptos_meta::*;
@@ -122,6 +125,7 @@ pub fn App() -> impl IntoView {
                             <ParentRoute path=leptos_router::path!(":id") view=ProjectPage>
                                 <Route path=leptos_router::path!("") view=GeneralSettings/>
                                 <Route path=leptos_router::path!("container") view=ContainerPage/>
+                                <Route path=leptos_router::path!("domains") view=DomainsList/>
                                 <Route path=leptos_router::path!("settings") view=ProjectSettings/>
                                 <Route path=leptos_router::path!("support") view=SupportContainers/>
                             </ParentRoute>

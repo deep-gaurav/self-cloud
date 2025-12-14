@@ -2,8 +2,7 @@ use crate::common::UpdateStatus;
 use leptos::prelude::*;
 
 #[cfg(feature = "ssr")]
-use serde::{Deserialize, Serialize};
-
+// use serde::{Deserialize, Serialize};
 #[cfg(feature = "ssr")]
 const REPO_OWNER: &str = "deep-gaurav";
 #[cfg(feature = "ssr")]
