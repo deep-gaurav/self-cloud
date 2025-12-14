@@ -603,13 +603,13 @@ pub fn GeneralSettings() -> impl IntoView {
 
 #[component]
 pub fn DomainsList() -> impl IntoView {
-    let id = expect_context::<Uuid>();
+    let id = expect_context::<Signal<Uuid>>();
     let add_domain_action = ServerAction::<AddProjectDomain>::new();
 
     let domains = Resource::new(
         move || {},
         move |_| async move {
-            let result = get_project_domains(id).await;
+            let result = get_project_domains(id.get()).await;
             let result = result.unwrap_or_default();
 
             // result.sort_by_key(|p| p.0.to_string());
@@ -643,7 +643,7 @@ pub fn DomainsList() -> impl IntoView {
         <div class="p-2">
             <Form action=AddProjectDomain::url()>
                 <div class="w-full rounded-md flex gap-5">
-                    <input type="hidden" name="id" prop:value=id.to_string()/>
+                    <input type="hidden" name="id" prop:value=move || id.get().to_string()/>
                     <input
                         name="domain"
                         id="domain"
