@@ -26,6 +26,8 @@ uuid.workspace = true
 pingora = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true, features = ["json"] }
+
 
 anyhow.workspace = true
 
@@ -92,4 +94,9 @@ ssr = [
     "dep:base64",
     "dep:time",
     "dep:docker-api",
+    "dep:reqwest",
 ]
+
+
+[build-dependencies]
+chrono = "0.4"

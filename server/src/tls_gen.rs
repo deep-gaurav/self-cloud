@@ -118,10 +118,25 @@ impl BackgroundService for TLSGenService {
                     let domain = 'ba: {
                         let mut peers = self.context.get_all_domains().await;
                         for (domain, peer) in peers.iter_mut() {
-                            if peer.ssl_provision.is_not_provisioned() {
+                             if peer.ssl_provision.is_not_provisioned() {
                                 peer.ssl_provision = SSLProvisioning::Provisioning;
                                 project_context.update_domain(domain.clone(), peer.clone()).await;
                                 break 'ba Some(domain.clone());
+                            } else if let SSLProvisioning::Provisioned(data) = &peer.ssl_provision {
+                                // Check expiry
+                                if let Some(first_cert) = data.cert.first() {
+                                    let not_after = first_cert.not_after();
+
+                                       let now = openssl::asn1::Asn1Time::days_from_now(0).unwrap();
+                                       let days_left = now.diff(not_after).map(|d| d.days).unwrap_or(0);
+
+                                       if days_left < 30 {                    tracing::info!("Certificate for {} expires in {} days. Renewing...", domain, days_left);
+                                            peer.ssl_provision = SSLProvisioning::Provisioning;
+                                            project_context.update_domain(domain.clone(), peer.clone()).await;
+                                            break 'ba Some(domain.clone());
+                                       }
+
+                                }
                             }
                         }
                         None

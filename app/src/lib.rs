@@ -12,6 +12,7 @@ use crate::pages::project::container_page::ContainerPage;
 use crate::pages::project::settings::ProjectSettings;
 use crate::pages::project::support_containers::SupportContainers;
 use crate::pages::project::{project_page::ProjectPage, ProjectsHome, ProjectsList};
+use crate::pages::settings::Settings;
 
 use leptos::prelude::*;
 use leptos_meta::*;
@@ -30,6 +31,7 @@ pub mod context;
 pub mod error_template;
 pub mod hooks;
 pub mod pages;
+pub mod updates;
 pub mod utils;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {

@@ -41,6 +41,11 @@ pub fn NavBar() -> impl IntoView {
                 elements
             }}
 
+            <div class="flex-grow"></div>
+            <A href="/settings" attr:class="px-2 py-1 dark:hover:bg-white/20 cursor-pointer flex items-center gap-1">
+                 <Icon icon=icondata::IoSettingsSharp width="24" height="24"/>
+            </A>
+
         </nav>
         <hr/>
     }

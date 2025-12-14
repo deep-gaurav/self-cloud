@@ -528,3 +528,12 @@ pub struct AttachParams {
     pub size_width: u64,
     pub size_height: u64,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UpdateStatus {
+    pub current_git_hash: String,
+    pub current_build_time: String,
+    pub remote_git_hash: String,
+    pub remote_build_time: String,
+    pub update_available: bool,
+}
