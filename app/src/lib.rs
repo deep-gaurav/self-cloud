@@ -67,7 +67,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <HydrationScripts options/>
                 <MetaTags/>
             </head>
-            <body class="font-display w-full bg-rooh_cream">
+            <body class="font-display w-full bg-gray-50 dark:bg-black text-gray-900 dark:text-gray-100">
                 <App/>
             </body>
         </html>
@@ -94,7 +94,7 @@ pub fn App() -> impl IntoView {
             // content for this welcome page
             <Router>
 
-                <main class="min-h-full w-full bg-slate-100 dark:bg-black dark:text-slate-50 flex flex-col">
+                <main class="min-h-full w-full flex flex-col">
                     <Routes fallback=|| {
                         let mut outside_errors = Errors::default();
                         outside_errors.insert_with_default_key(AppError::NotFound);

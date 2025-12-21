@@ -64,8 +64,8 @@ pub fn ProjectPage() -> impl IntoView {
                         match project {
                             Ok(project) => {
                                 Either::Left(view! {
-                                    <h1 class="text-4xl">{project.name}</h1>
-                                    <div class="text-slate-600 dark:text-slate-400 text-sm">
+                                    <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-600">{project.name}</h1>
+                                    <div class="text-gray-500 dark:text-gray-400 text-sm font-mono mt-1">
                                         {project.id.to_string()}
                                     </div>
                                 })
@@ -136,14 +136,18 @@ pub fn ProjectPage() -> impl IntoView {
                                 view! {
                                     <A href=target_path.clone()>
                                         <span
-                                            class="dark:hover:bg-white/5 hover:bg-black/5 p-3 rounded text-sm cursor-pointer text-slate-700 dark:text-white/65 block"
+                                            class="dark:hover:bg-gray-800 hover:bg-gray-200 p-3 rounded-xl text-sm cursor-pointer text-gray-600 dark:text-gray-400 block transition-colors"
                                             class=(
                                                 [
-                                                    "text-black",
-                                                    "dark:text-white",
+                                                    "bg-white",
+                                                    "dark:bg-gray-900",
+                                                    "text-blue-600",
+                                                    "dark:text-blue-400",
                                                     "font-medium",
-                                                    "dark:bg-white/10",
-                                                    "bg-black/10",
+                                                    "shadow-sm",
+                                                    "border",
+                                                    "border-gray-200",
+                                                    "dark:border-gray-800"
                                                 ],
                                                 is_active,
                                             )

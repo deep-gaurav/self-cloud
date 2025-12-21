@@ -83,8 +83,18 @@ pub fn ApexChart(
             }
 
             let options_js = serde_wasm_bindgen::to_value(&opts).unwrap();
+            web_sys::console::log_1(&"Attempting to create ApexCharts".into());
+
+            // Check if ApexCharts is defined (this is hard in Rust wasm-bindgen without using js_sys::Reflect or similar on window)
+            // But if the bindgen call fails, it usually throws a JS error.
+            // Let's wrap in a try-catch equivalent if possible, or just log before.
+
             let chart = ApexCharts::new(&div, options_js);
+            web_sys::console::log_1(&"ApexCharts created".into());
+
             chart.render();
+            web_sys::console::log_1(&"ApexCharts rendered".into());
+
             chart_ref.set_value(Some(SendWrapper(chart)));
         }
     });

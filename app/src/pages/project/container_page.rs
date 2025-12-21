@@ -88,35 +88,39 @@ pub fn ContainerPage() -> impl IntoView {
     let id_val = id.get();
 
     view! {
-        <div class="h-full w-full flex flex-col">
-            <div class="flex-none p-4 border-b bg-white dark:bg-gray-800 dark:border-gray-700">
-                <div class="flex items-center justify-between mb-4">
-                    <h1 class="text-2xl font-bold dark:text-white">"Container Details"</h1>
+        <Transition>
+            <div class="p-6 max-w-7xl mx-auto space-y-6">
+                 <div class="flex justify-between items-center bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                    <div>
+                        <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-600">"Container Details"</h1>
+                         <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            {move || container.get().and_then(|r| r.ok()).map(|c| c.name).unwrap_or_default()}
+                         </div>
+                    </div>
                     <div class="flex gap-2">
                         <a
                             href=move || format!("/projects/{}", id_val)
-                            class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded text-gray-700 transition-colors dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+                            class="px-4 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl text-gray-600 dark:text-gray-300 transition-colors shadow-sm"
                         >
                             "Back to Containers"
                         </a>
                     </div>
                 </div>
-                <ContainerControls container_id=id_val/>
-            </div>
 
-            <div class="flex-1 overflow-hidden flex flex-col">
-               <div class="flex-none border-b bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
-                   <div class="flex gap-4 px-4">
+                <ContainerControls container_id=id_val/>
+
+                <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+                   <div class="flex gap-1 p-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
                        <a
                            href=move || format!("/projects/{}/container?page=logs", id_val)
                            class=move || {
                                let active = sub_page.get().as_deref() == Some("logs");
                                format!(
-                                   "py-2 px-1 border-b-2 transition-colors text-sm font-medium {}",
+                                   "px-4 py-2 rounded-lg text-sm font-medium transition-all {}",
                                    if active {
-                                       "border-blue-500 text-blue-600 dark:text-blue-400"
+                                       "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm"
                                    } else {
-                                       "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                       "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                                    }
                                )
                            }
@@ -128,11 +132,11 @@ pub fn ContainerPage() -> impl IntoView {
                            class=move || {
                                let active = sub_page.get().as_deref() == Some("stats");
                                format!(
-                                   "py-2 px-1 border-b-2 transition-colors text-sm font-medium {}",
+                                   "px-4 py-2 rounded-lg text-sm font-medium transition-all {}",
                                    if active {
-                                       "border-blue-500 text-blue-600 dark:text-blue-400"
+                                       "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm"
                                    } else {
-                                       "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                       "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                                    }
                                )
                            }
@@ -144,11 +148,11 @@ pub fn ContainerPage() -> impl IntoView {
                            class=move || {
                                let active = sub_page.get().as_deref() == Some("attach");
                                format!(
-                                   "py-2 px-1 border-b-2 transition-colors text-sm font-medium {}",
+                                   "px-4 py-2 rounded-lg text-sm font-medium transition-all {}",
                                    if active {
-                                       "border-blue-500 text-blue-600 dark:text-blue-400"
+                                       "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm"
                                    } else {
-                                       "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                       "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                                    }
                                )
                            }
@@ -156,13 +160,13 @@ pub fn ContainerPage() -> impl IntoView {
                            "Terminal"
                        </a>
                    </div>
-               </div>
 
-               <div class="flex-1 overflow-auto p-4 bg-gray-100 dark:bg-gray-950">
-                   <ContainerSubPages id=id_val/>
-               </div>
+                   <div class="min-h-[400px]">
+                       <ContainerSubPages id=id_val/>
+                   </div>
+                </div>
             </div>
-        </div>
+        </Transition>
     }
 }
 
@@ -445,16 +449,16 @@ pub fn ContainerStats(container_id: Uuid) -> impl IntoView {
 
     view! {
         <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div class="bg-white dark:bg-gray-800 p-4 rounded shadow">
-                <h3 class="text-lg font-bold mb-2 dark:text-white">"CPU Usage"</h3>
+             <div class="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
+                <h3 class="text-lg font-bold mb-4 dark:text-white">"CPU Usage"</h3>
                 <ApexChart series=cpu_series options=Signal::from(common_options.clone()) height="300"/>
              </div>
-             <div class="bg-white dark:bg-gray-800 p-4 rounded shadow">
-                <h3 class="text-lg font-bold mb-2 dark:text-white">"Memory Usage"</h3>
+             <div class="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
+                <h3 class="text-lg font-bold mb-4 dark:text-white">"Memory Usage"</h3>
                 <ApexChart series=memory_series options=Signal::from(common_options.clone()) height="300"/>
              </div>
-              <div class="bg-white dark:bg-gray-800 p-4 rounded shadow col-span-1 md:col-span-2">
-                <h3 class="text-lg font-bold mb-2 dark:text-white">"Network Traffic"</h3>
+              <div class="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 col-span-1 md:col-span-2">
+                <h3 class="text-lg font-bold mb-4 dark:text-white">"Network Traffic"</h3>
                 <ApexChart series=network_series options=Signal::from(common_options) height="300"/>
              </div>
         </div>
