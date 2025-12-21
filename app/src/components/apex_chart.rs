@@ -7,8 +7,8 @@ extern "C" {
     #[wasm_bindgen(js_name = ApexCharts)]
     type ApexCharts;
 
-    #[wasm_bindgen(constructor, js_class = "ApexCharts")]
-    fn new(element: &web_sys::Element, options: JsValue) -> ApexCharts;
+    #[wasm_bindgen(constructor, js_class = "ApexCharts", catch)]
+    fn new(element: &web_sys::Element, options: JsValue) -> Result<ApexCharts, JsValue>;
 
     #[wasm_bindgen(method, js_class = "ApexCharts")]
     fn render(this: &ApexCharts);
@@ -105,14 +105,28 @@ pub fn ApexChart(
 
                 if has_apex {
                     web_sys::console::log_1(&"ApexCharts found, initializing...".into());
-                    let chart = ApexCharts::new(&div_clone, options_js.clone());
-                    web_sys::console::log_1(&"ApexCharts created".into());
-                    chart.render();
-                    web_sys::console::log_1(&"ApexCharts rendered".into());
-                    chart_ref.set_value(Some(SendWrapper(chart)));
 
-                    // Cleanup check mechanism
-                    check_closure_ref.set_value(None);
+                    // Inspect what ApexCharts actually is
+                    let apex_val = js_sys::Reflect::get(&window, &"ApexCharts".into()).unwrap();
+                    web_sys::console::log_2(&"Window.ApexCharts type:".into(), &apex_val);
+                    web_sys::console::log_2(&"Options:".into(), &options_js);
+
+                    match ApexCharts::new(&div_clone, options_js.clone()) {
+                        Ok(chart) => {
+                            web_sys::console::log_1(&"ApexCharts created".into());
+                            chart.render();
+                            web_sys::console::log_1(&"ApexCharts rendered".into());
+                            chart_ref.set_value(Some(SendWrapper(chart)));
+
+                            // Cleanup check mechanism
+                            check_closure_ref.set_value(None);
+                        }
+                        Err(err) => {
+                            web_sys::console::error_2(&"Error creating ApexCharts:".into(), &err);
+                            // Do not retry if constructor fails, it likely won't fix itself
+                            check_closure_ref.set_value(None);
+                        }
+                    }
                 } else {
                     let r = retries.get_value();
                     if r < 20 {
