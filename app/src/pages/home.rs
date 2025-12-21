@@ -15,6 +15,11 @@ pub fn HomePage(login: ServerAction<Login>) -> impl IntoView {
         if let Some(Ok(_)) = value {
             auth.refetch();
         }
+
+        if let Some(Ok(AuthType::Authorized(_))) = auth.get() {
+            let navigate = leptos_router::hooks::use_navigate();
+            navigate("/dashboard", Default::default());
+        }
     });
 
     let version = Resource::new(|| (), move |_| get_server_version());

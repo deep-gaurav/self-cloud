@@ -94,7 +94,7 @@ pub fn ContainerPage() -> impl IntoView {
                     <h1 class="text-2xl font-bold dark:text-white">"Container Details"</h1>
                     <div class="flex gap-2">
                         <a
-                            href=move || format!("/projects/containers?id={}", id_val)
+                            href=move || format!("/projects/{}", id_val)
                             class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded text-gray-700 transition-colors dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
                         >
                             "Back to Containers"
@@ -108,7 +108,7 @@ pub fn ContainerPage() -> impl IntoView {
                <div class="flex-none border-b bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
                    <div class="flex gap-4 px-4">
                        <a
-                           href=move || format!("/projects/containers?id={}&page=logs", id_val)
+                           href=move || format!("/projects/{}/container?page=logs", id_val)
                            class=move || {
                                let active = sub_page.get().as_deref() == Some("logs");
                                format!(
@@ -124,7 +124,7 @@ pub fn ContainerPage() -> impl IntoView {
                            "Logs"
                        </a>
                        <a
-                           href=move || format!("/projects/containers?id={}&page=stats", id_val)
+                           href=move || format!("/projects/{}/container?page=stats", id_val)
                            class=move || {
                                let active = sub_page.get().as_deref() == Some("stats");
                                format!(
@@ -140,7 +140,7 @@ pub fn ContainerPage() -> impl IntoView {
                            "Stats"
                        </a>
                        <a
-                           href=move || format!("/projects/containers?id={}&page=attach", id_val)
+                           href=move || format!("/projects/{}/container?page=attach", id_val)
                            class=move || {
                                let active = sub_page.get().as_deref() == Some("attach");
                                format!(

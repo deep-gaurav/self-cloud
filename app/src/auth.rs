@@ -139,7 +139,7 @@ pub mod server {
     pub fn get_user_from_cookie(cookie: Cookie) -> anyhow::Result<User> {
         if let Some(expires) = cookie.expires_datetime() {
             let now = time::OffsetDateTime::now_utc();
-            if expires > now {
+            if expires < now {
                 return Err(anyhow!("Session Expired"));
             }
         }

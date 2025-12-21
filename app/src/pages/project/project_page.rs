@@ -115,7 +115,7 @@ pub fn ProjectPage() -> impl IntoView {
                                     pages
                                         .push(ChildMenus {
                                             name: "Services",
-                                            path: "/services",
+                                            path: "/support",
                                         });
                                 }
                                 pages
