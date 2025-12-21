@@ -1,3 +1,4 @@
+pub mod apex_chart;
 pub mod file_browser;
 pub mod input_field;
 pub mod nav_bar;

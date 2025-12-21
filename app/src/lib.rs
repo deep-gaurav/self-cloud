@@ -59,6 +59,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <noscript>
                     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
                 </noscript>
+                <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
                 <link rel="preload" href="/pkg/start-axum-workspace.css" attr:as="style"/>
                 <link rel="stylesheet" href="/pkg/start-axum-workspace.css"/>
 
