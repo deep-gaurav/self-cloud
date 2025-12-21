@@ -54,10 +54,12 @@ pub fn ApexChart(
     let chart_ref = StoredValue::new(None::<SendWrapper<ApexCharts>>);
 
     let id_clone = id.clone();
+    let height_creation = height.clone();
     Effect::new(move |_| {
         let div = document().get_element_by_id(&id_clone);
         if let Some(div) = div {
-            let mut opts = options.get();
+            // Use get_untracked to prevent re-creation loop when options update
+            let mut opts = options.get_untracked();
 
             // Merge default options with user options
             if let Some(obj) = opts.as_object_mut() {
@@ -67,7 +69,9 @@ pub fn ApexChart(
                 if let Some(chart) = obj.get_mut("chart").and_then(|c| c.as_object_mut()) {
                     chart.insert(
                         "height".to_string(),
-                        serde_json::Value::String(height.clone().unwrap_or("350".to_string())),
+                        serde_json::Value::String(
+                            height_creation.clone().unwrap_or("350".to_string()),
+                        ),
                     );
                     if !chart.contains_key("animations") {
                         chart.insert(
@@ -148,6 +152,44 @@ pub fn ApexChart(
                     .request_animation_frame(js_val)
                     .unwrap();
             }
+        }
+    });
+
+    // Effect to handle option updates
+    let height_clone = height.clone();
+    Effect::new(move |_| {
+        // This effect will run when options change
+        let mut opts = options.get();
+        if let Some(wrapper) = chart_ref.get_value() {
+            let chart = &wrapper.0;
+
+            // Merge default options again for updates (in case they changed)
+            if let Some(obj) = opts.as_object_mut() {
+                // Ensure chart object exists
+                if !obj.contains_key("chart") {
+                    obj.insert("chart".to_string(), serde_json::json!({}));
+                }
+
+                if let Some(chart) = obj.get_mut("chart").and_then(|c| c.as_object_mut()) {
+                    // Update height if needed
+                    chart.insert(
+                        "height".to_string(),
+                        serde_json::Value::String(
+                            height_clone.clone().unwrap_or("350".to_string()),
+                        ),
+                    );
+                    // Ensure animations stay disabled if not specified
+                    if !chart.contains_key("animations") {
+                        chart.insert(
+                            "animations".to_string(),
+                            serde_json::json!({ "enabled": false }),
+                        );
+                    }
+                }
+            }
+
+            let options_js = serde_wasm_bindgen::to_value(&opts).unwrap();
+            chart.update_options(options_js);
         }
     });
 
