@@ -69,7 +69,6 @@ pub fn ApexChart(
                         "height".to_string(),
                         serde_json::Value::String(height.clone().unwrap_or("350".to_string())),
                     );
-                    // Disable animations for performance if needed, or keep them
                     if !chart.contains_key("animations") {
                         chart.insert(
                             "animations".to_string(),
@@ -83,19 +82,72 @@ pub fn ApexChart(
             }
 
             let options_js = serde_wasm_bindgen::to_value(&opts).unwrap();
-            web_sys::console::log_1(&"Attempting to create ApexCharts".into());
 
-            // Check if ApexCharts is defined (this is hard in Rust wasm-bindgen without using js_sys::Reflect or similar on window)
-            // But if the bindgen call fails, it usually throws a JS error.
-            // Let's wrap in a try-catch equivalent if possible, or just log before.
+            // Retry mechanism for loading ApexCharts using SendWrapper for StoredValue
+            // We use Rc so that the inner type is Clone, satisfying StoredValue::get_value requirements
+            let check_closure_ref =
+                StoredValue::new(None::<SendWrapper<std::rc::Rc<Closure<dyn FnMut()>>>>);
+            let retries = StoredValue::new(0);
 
-            let chart = ApexCharts::new(&div, options_js);
-            web_sys::console::log_1(&"ApexCharts created".into());
+            let div_clone = div.clone();
 
-            chart.render();
-            web_sys::console::log_1(&"ApexCharts rendered".into());
+            // Define the closure to check for ApexCharts
+            // We need to move check_closure_ref into the closure to clear itself
+            let check_fn = move || {
+                web_sys::console::log_1(&"Checking for ApexCharts globally...".into());
 
-            chart_ref.set_value(Some(SendWrapper(chart)));
+                let window = web_sys::window().unwrap();
+                let has_apex = js_sys::Reflect::has(&window, &"ApexCharts".into()).unwrap_or(false);
+
+                if has_apex {
+                    web_sys::console::log_1(&"ApexCharts found, initializing...".into());
+                    let chart = ApexCharts::new(&div_clone, options_js.clone());
+                    web_sys::console::log_1(&"ApexCharts created".into());
+                    chart.render();
+                    web_sys::console::log_1(&"ApexCharts rendered".into());
+                    chart_ref.set_value(Some(SendWrapper(chart)));
+
+                    // Cleanup check mechanism
+                    check_closure_ref.set_value(None);
+                } else {
+                    let r = retries.get_value();
+                    if r < 20 {
+                        retries.set_value(r + 1);
+                        web_sys::console::log_1(
+                            &format!("ApexCharts not found, retrying {}...", r).into(),
+                        );
+
+                        // Re-schedule
+                        if let Some(wrapper) = check_closure_ref.get_value() {
+                            // wrapper.0 is Rc<Closure>
+                            // we need to get &JsValue from it
+                            let closure: &Closure<dyn FnMut()> = &*wrapper.0;
+                            let js_val: &web_sys::js_sys::Function =
+                                closure.as_ref().unchecked_ref();
+                            window.request_animation_frame(js_val).unwrap();
+                        }
+                    } else {
+                        web_sys::console::error_1(
+                            &"ApexCharts not found after retries. Script might not be loaded."
+                                .into(),
+                        );
+                        check_closure_ref.set_value(None);
+                    }
+                }
+            };
+
+            let closure = Closure::wrap(Box::new(check_fn) as Box<dyn FnMut()>);
+            check_closure_ref.set_value(Some(SendWrapper(std::rc::Rc::new(closure))));
+
+            // Start the check
+            if let Some(wrapper) = check_closure_ref.get_value() {
+                let closure: &Closure<dyn FnMut()> = &*wrapper.0;
+                let js_val: &web_sys::js_sys::Function = closure.as_ref().unchecked_ref();
+                web_sys::window()
+                    .unwrap()
+                    .request_animation_frame(js_val)
+                    .unwrap();
+            }
         }
     });
 
