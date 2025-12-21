@@ -46,7 +46,20 @@ pub async fn container_stats_ws(
 
 async fn handle_stats_socket(mut socket: WebSocket, container: Arc<Container>) {
     let mut stat_stream = container.stats();
-    let mut previous_value = serde_json::Value::Null;
+    // Get the first item to initialize state
+    let mut previous_value = if let Some(Ok(initial_stats)) = stat_stream.next().await {
+        // Send the initial full state
+        if let Ok(serialized) = serde_json::to_string(&initial_stats) {
+            if let Err(err) = socket.send(Message::Text(serialized.into())).await {
+                warn!("Failed to send initial stats {err:?}");
+                return;
+            }
+        }
+        initial_stats
+    } else {
+        return;
+    };
+
     loop {
         tokio::select! {
             rec = socket.recv() => {
@@ -54,7 +67,6 @@ async fn handle_stats_socket(mut socket: WebSocket, container: Arc<Container>) {
                     tracing::debug!("Exiting stats socket, ws closed");
                     break;
                 }
-                //Ignore for now
             }
             Some(item) = stat_stream.next() => {
                 match item {
@@ -70,7 +82,6 @@ async fn handle_stats_socket(mut socket: WebSocket, container: Arc<Container>) {
                     }
                     Err(err) => {
                         warn!("Stats stream gave error {err:?}")
-                        // yield Err(axum::BoxError::new(anyhow::anyhow!("{err:#?}")))
                     }
                 }
             }

@@ -310,12 +310,31 @@ pub fn ContainerStats(container_id: Uuid) -> impl IntoView {
     Effect::new(move |_| {
         message.with(|msg| {
             if let Some(WsMessage::Text(text)) = msg {
-                if let Ok(patch) = serde_json::from_str::<json_patch::Patch>(text) {
-                    set_current_stats.update(|data| {
-                        if let Err(err) = json_patch::patch(data, &patch) {
-                            tracing::warn!("Json patch failed {err:?}");
-                        }
-                    });
+                // If the text starts with `[`, it's likely a patch. If `{`, it's an object.
+                if text.starts_with('[') {
+                    if let Ok(patch) = serde_json::from_str::<json_patch::Patch>(text) {
+                        set_current_stats.update(|data| {
+                            if data.is_null() {
+                                tracing::warn!("Received patch before full state!");
+                            } else {
+                                if let Err(err) = json_patch::patch(data, &patch) {
+                                    tracing::warn!("Json patch failed {err:?}");
+                                }
+                            }
+                        });
+                    } else {
+                        tracing::warn!("Failed to parse text starting with '[' as JSON patch.");
+                    }
+                } else if text.starts_with('{') {
+                    if let Ok(stats) = serde_json::from_str::<serde_json::Value>(text) {
+                        set_current_stats.set(stats);
+                    } else {
+                        tracing::warn!(
+                            "Failed to parse text starting with '{{' as full JSON object."
+                        );
+                    }
+                } else {
+                    tracing::warn!("Received unexpected message format: {}", text);
                 }
             }
         });
