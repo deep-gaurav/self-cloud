@@ -85,7 +85,11 @@ pub fn ApexChart(
                 }
             }
 
-            let options_js = serde_wasm_bindgen::to_value(&opts).unwrap();
+            // serde_wasm_bindgen::to_value converts Maps to ES6 Maps by default, which ApexCharts can't read.
+            // We need a Plain Old JavaScript Object (POJO).
+            // A reliable way is to serialize to JSON string and parse in JS.
+            let options_str = serde_json::to_string(&opts).unwrap();
+            let options_js = js_sys::JSON::parse(&options_str).unwrap();
 
             // Retry mechanism for loading ApexCharts using SendWrapper for StoredValue
             // We use Rc so that the inner type is Clone, satisfying StoredValue::get_value requirements
@@ -202,7 +206,9 @@ pub fn ApexChart(
                 }
             }
 
-            let options_js = serde_wasm_bindgen::to_value(&opts).unwrap();
+            let options_str = serde_json::to_string(&opts).unwrap();
+            let options_js = js_sys::JSON::parse(&options_str).unwrap();
+
             chart.update_options(options_js);
         }
     });
@@ -212,7 +218,8 @@ pub fn ApexChart(
         if let Some(wrapper) = chart_ref.get_value() {
             let chart = &wrapper.0;
             let s = series.get();
-            let s_js = serde_wasm_bindgen::to_value(&s).unwrap();
+            let s_str = serde_json::to_string(&s).unwrap();
+            let s_js = js_sys::JSON::parse(&s_str).unwrap();
             chart.update_series(s_js);
         }
     });
