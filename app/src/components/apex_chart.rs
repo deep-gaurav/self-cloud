@@ -218,6 +218,19 @@ pub fn ApexChart(
         if let Some(wrapper) = chart_ref.get_value() {
             let chart = &wrapper.0;
             let s = series.get();
+
+            // Debug logs
+            let s_len = s.iter().map(|series| series.data.len()).sum::<usize>();
+            web_sys::console::log_1(&format!("Updating series. Total points: {}", s_len).into());
+            if s_len > 0 {
+                // Log the first point of the first series for verification
+                if let Some(first) = s.first() {
+                    if let Some(point) = first.data.first() {
+                        web_sys::console::log_1(&format!("First data point: {:?}", point).into());
+                    }
+                }
+            }
+
             let s_str = serde_json::to_string(&s).unwrap();
             let s_js = js_sys::JSON::parse(&s_str).unwrap();
             chart.update_series(s_js);

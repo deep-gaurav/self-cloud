@@ -316,9 +316,18 @@ pub fn ContainerStats(container_id: Uuid) -> impl IntoView {
                         set_current_stats.update(|data| {
                             if data.is_null() {
                                 tracing::warn!("Received patch before full state!");
+                                web_sys::console::warn_1(
+                                    &"Received patch before full state!".into(),
+                                );
                             } else {
                                 if let Err(err) = json_patch::patch(data, &patch) {
                                     tracing::warn!("Json patch failed {err:?}");
+                                    web_sys::console::warn_1(
+                                        &format!("Json patch failed {err:?}").into(),
+                                    );
+                                } else {
+                                    // Log success occasionally or if data checks out?
+                                    // Let's just monitor for errors primarily
                                 }
                             }
                         });
@@ -326,6 +335,7 @@ pub fn ContainerStats(container_id: Uuid) -> impl IntoView {
                         tracing::warn!("Failed to parse text starting with '[' as JSON patch.");
                     }
                 } else if text.starts_with('{') {
+                    web_sys::console::log_1(&"Received simple JSON object stats".into());
                     if let Ok(stats) = serde_json::from_str::<serde_json::Value>(text) {
                         set_current_stats.set(stats);
                     } else {
