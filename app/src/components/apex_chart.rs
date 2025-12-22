@@ -51,7 +51,9 @@ pub fn ApexChart(
     let id = format!("chart-{}", uuid::Uuid::new_v4());
     // Use SendWrapper to satisfy StoredValue requirements in generic contexts,
     // even though we only access it on the main thread in WASM.
-    let chart_ref = StoredValue::new(None::<SendWrapper<ApexCharts>>);
+    // Use SendWrapper to satisfy StoredValue requirements in generic contexts,
+    // even though we only access it on the main thread in WASM.
+    let chart_ref = RwSignal::new(None::<SendWrapper<ApexCharts>>);
 
     let id_clone = id.clone();
     let height_creation = height.clone();
@@ -120,7 +122,7 @@ pub fn ApexChart(
                             web_sys::console::log_1(&"ApexCharts created".into());
                             chart.render();
                             web_sys::console::log_1(&"ApexCharts rendered".into());
-                            chart_ref.set_value(Some(SendWrapper(chart)));
+                            chart_ref.set(Some(SendWrapper(chart)));
 
                             // Cleanup check mechanism
                             check_closure_ref.set_value(None);
@@ -178,7 +180,7 @@ pub fn ApexChart(
     Effect::new(move |_| {
         // This effect will run when options change
         let mut opts = options.get();
-        if let Some(wrapper) = chart_ref.get_value() {
+        if let Some(wrapper) = chart_ref.get() {
             let chart = &wrapper.0;
 
             // Merge default options again for updates (in case they changed)
@@ -215,7 +217,7 @@ pub fn ApexChart(
 
     Effect::new(move |_| {
         // Access value with .with or .get_value
-        if let Some(wrapper) = chart_ref.get_value() {
+        if let Some(wrapper) = chart_ref.get() {
             let chart = &wrapper.0;
             let s = series.get();
 
@@ -238,7 +240,7 @@ pub fn ApexChart(
     });
 
     on_cleanup(move || {
-        if let Some(wrapper) = chart_ref.get_value() {
+        if let Some(wrapper) = chart_ref.get() {
             wrapper.0.destroy();
         }
     });
