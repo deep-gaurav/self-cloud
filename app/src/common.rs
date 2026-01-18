@@ -125,9 +125,17 @@ pub struct EnvironmentVar {
     pub val: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct Volume {
+    pub name: String,
+    pub container_path: String,
+}
+
 #[derive(Serialize, Clone, Debug)]
 pub struct Container {
     pub env_vars: smallvec::SmallVec<[EnvironmentVar; 4]>,
+    #[serde(default)]
+    pub volumes: smallvec::SmallVec<[Volume; 2]>,
     #[cfg(feature = "ssr")]
     #[serde(skip)]
     pub status: ContainerStatus,
@@ -241,7 +249,7 @@ impl<'de> Deserialize<'de> for ExposedPort {
 
 impl PartialEq for Container {
     fn eq(&self, other: &Self) -> bool {
-        self.env_vars == other.env_vars
+        self.env_vars == other.env_vars && self.volumes == other.volumes
     }
 }
 
@@ -253,6 +261,8 @@ impl<'de> Deserialize<'de> for Container {
         #[derive(Clone, Deserialize)]
         pub struct TmpContainer {
             pub env_vars: smallvec::SmallVec<[EnvironmentVar; 4]>,
+            #[serde(default)]
+            pub volumes: smallvec::SmallVec<[Volume; 2]>,
         }
 
         let d = TmpContainer::deserialize(deserializer)?;
@@ -263,6 +273,7 @@ impl<'de> Deserialize<'de> for Container {
                 // exposed_ports: d.exposed_ports,
                 // tokens: d.tokens,
                 env_vars: d.env_vars,
+                volumes: d.volumes,
             })
         }
 
@@ -273,6 +284,7 @@ impl<'de> Deserialize<'de> for Container {
                 status: ContainerStatus::None,
                 // tokens: d.tokens,
                 env_vars: d.env_vars,
+                volumes: d.volumes,
             })
         }
     }

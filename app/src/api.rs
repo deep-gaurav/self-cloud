@@ -277,6 +277,7 @@ pub async fn set_support_containers(
                                 .env_vars
                                 .map(|ev| ev.into_values().collect::<Vec<_>>().into())
                                 .unwrap_or_default(),
+                            volumes: vec![].into(),
                             status: crate::common::ContainerStatus::None,
                         },
                     },
@@ -327,6 +328,7 @@ pub async fn update_project_image(
     id: Uuid,
     exposed_ports: Option<HashMap<String, ExposedPort>>,
     env_vars: Option<HashMap<String, EnvironmentVar>>,
+    volumes: Option<HashMap<String, crate::common::Volume>>,
     // tokens: Option<HashMap<String, Token>>,
 ) -> Result<(), ServerFnError> {
     user()?;
@@ -377,6 +379,9 @@ pub async fn update_project_image(
             primary_container: Container {
                 env_vars: env_vars
                     .map(|ev| ev.into_values().collect::<Vec<_>>().into())
+                    .unwrap_or_default(),
+                volumes: volumes
+                    .map(|v| v.into_values().collect::<Vec<_>>().into())
                     .unwrap_or_default(),
 
                 status: crate::common::ContainerStatus::None,

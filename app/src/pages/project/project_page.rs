@@ -24,6 +24,7 @@ use crate::common::ExposedPort;
 use crate::common::PortForward;
 use crate::common::Project;
 use crate::common::ProjectType;
+use crate::common::Volume;
 
 #[derive(Params, PartialEq, Clone, Debug, Copy)]
 struct ProjectParams {
@@ -240,6 +241,7 @@ pub fn GeneralSettings() -> impl IntoView {
                                 #[cfg(feature = "ssr")]
                                 status: crate::common::ContainerStatus::None,
                                 env_vars: vec![].into(),
+                                volumes: vec![].into(),
                             },
                         })
                     }
@@ -368,6 +370,13 @@ pub fn GeneralSettings() -> impl IntoView {
                                     let mut map = vec![];
                                     for env_var in container.env_vars.into_iter() {
                                         map.push((map.len(), env_var))
+                                    }
+                                    map
+                                });
+                                let (volumes, set_volumes) = signal({
+                                    let mut map = vec![];
+                                    for vol in container.volumes.into_iter() {
+                                        map.push((map.len(), vol))
                                     }
                                     map
                                 });
@@ -582,6 +591,70 @@ pub fn GeneralSettings() -> impl IntoView {
                                             >
 
                                                 "Add New Environment Variable"
+                                            </button>
+                                        </div>
+
+                                        // Volumes
+                                        <div class="h-4"></div>
+                                        <div class="text-md">"Volumes / Persistent Storage"</div>
+                                        <div>
+                                            <For
+                                                each=move || volumes.get().into_iter()
+                                                key=|p| p.0
+                                                children=move |(index, vol)| {
+                                                    view! {
+                                                        <div class="flex flex-col gap-4 p-2 border dark:border-white/20 m-2 rounded">
+                                                            <div class="flex gap-4 flex-wrap">
+                                                                <div class="flex flex-col">
+                                                                    <label class="text-sm dark:text-white/50">"Volume Name"</label>
+                                                                    <input
+                                                                        prop:value=vol.name
+                                                                        type="text"
+                                                                        name=format!("volumes[{}][name]", index)
+                                                                        class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                        placeholder="e.g. data"
+                                                                    />
+                                                                </div>
+                                                                <div class="flex flex-col">
+                                                                    <label class="text-sm dark:text-white/50">"Container Path"</label>
+                                                                    <input
+                                                                        prop:value=vol.container_path
+                                                                        type="text"
+                                                                        name=format!("volumes[{}][container_path]", index)
+                                                                        class="border p-2 rounded-md dark:bg-white/10 dark:border-white/5"
+                                                                        placeholder="e.g. /app/data"
+                                                                    />
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    class="p-2 rounded bg-red-700 px-6 text-white mt-5"
+                                                                    on:click=move |_| {
+                                                                        let mut v = volumes.get_untracked();
+                                                                        v.remove(index);
+                                                                        set_volumes.set(v);
+                                                                    }
+                                                                >
+                                                                    "Remove"
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                }
+                                            />
+                                            <button
+                                                type="button"
+                                                class="p-2 rounded border bg-white/90 px-6 text-black"
+                                                on:click=move |_| {
+                                                    let new_vol = Volume {
+                                                        name: "".to_string(),
+                                                        container_path: "".to_string(),
+                                                    };
+                                                    let mut v = volumes.get_untracked();
+                                                    v.push((v.last().map(|p| p.0).unwrap_or_default() + 1, new_vol));
+                                                    set_volumes.set(v);
+                                                }
+                                            >
+                                                "Add Volume"
                                             </button>
                                         </div>
 

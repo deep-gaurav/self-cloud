@@ -42,6 +42,11 @@ You can define auxiliary containers (e.g., databases, Redis, caches) alongside y
 ### D. SSL/TLS Management
 * **Automatic Provisioning**: Domains attached to projects support automatic SSL provisioning (likely Let's Encrypt/ACME based on `SSLProvisioning` states).
 
+### E. Persistent Storage (Volumes)
+* **Named Volumes**: Supports attaching persistent named volumes to your primary container.
+* **Scoped Isolation**: Volume names are automatically scoped to the project (e.g., a volume named `data` becomes `selfcloud_{project_id}_data` on the host) to prevent collisions between projects.
+* **Persistence**: Data stored in these volumes persists across container restarts and image updates.
+
 ---
 
 ## 3. Deployment & CI/CD Integration

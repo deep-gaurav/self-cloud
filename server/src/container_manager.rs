@@ -176,6 +176,7 @@ async fn run_and_set_container(
 
                 let container = container.clone();
                 let exposed_ports = exposed_ports.clone();
+                let project_id = project.id;
                 let mut container_fut = tokio::spawn(async move {
                     let docker = get_docker();
                     let mut builder = ContainerCreateOpts::builder()
@@ -189,6 +190,9 @@ async fn run_and_set_container(
                                 .iter()
                                 .map(|ev| format!("{}={}", ev.key, ev.val)),
                         )
+                        .volumes(container.volumes.iter().map(|v| {
+                            format!("selfcloud_{}_{}:{}", project_id, v.name, v.container_path)
+                        }))
                         .network_mode(network)
                         .publish_all_ports();
 

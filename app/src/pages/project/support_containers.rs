@@ -65,6 +65,7 @@ pub fn SupportContainers() -> impl IntoView {
                                                                     image: String::new(),
                                                                     container: Container {
                                                                         env_vars: vec![].into(),
+                                                                        volumes: vec![].into(),
                                                                         #[cfg(feature = "ssr")]
                                                                         status: crate::common::ContainerStatus::None,
                                                                     },
