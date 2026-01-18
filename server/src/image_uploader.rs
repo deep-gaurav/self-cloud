@@ -68,7 +68,7 @@ pub async fn push_image(
                     };
                     let docker = get_docker();
                     let images = docker.images();
-                    let (tx, rx) = tokio::sync::mpsc::channel(5);
+                    let (tx, rx) = tokio::sync::mpsc::channel(100);
 
                     let id = format!("selfcloud_image_{}", project_id.to_string());
                     info!("Uploading image to {id}");
