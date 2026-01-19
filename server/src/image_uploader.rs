@@ -1,4 +1,4 @@
-use std::{io::Cursor, sync::Arc};
+use std::sync::Arc;
 
 use app::common::{get_docker, ContainerStatus, ProjectType};
 use axum::{
@@ -13,6 +13,9 @@ use uuid::Uuid;
 
 use crate::leptos_service::AppState;
 
+use tokio::io::BufReader;
+use tokio_util::io::{ReaderStream, StreamReader};
+
 #[axum::debug_handler]
 pub async fn push_image(
     State(state): State<AppState>,
@@ -23,7 +26,7 @@ pub async fn push_image(
     let mut project_id = None;
     loop {
         let field = multipart.next_field().await?;
-        if let Some(mut field) = field {
+        if let Some(field) = field {
             let name = field
                 .name()
                 .ok_or(anyhow::anyhow!("Unnamed field"))?
@@ -68,21 +71,32 @@ pub async fn push_image(
                     };
                     let docker = get_docker();
                     let images = docker.images();
-                    let (tx, rx) = tokio::sync::mpsc::channel(100);
 
                     let id = format!("selfcloud_image_{}", project_id.to_string());
                     info!("Uploading image to {id}");
 
+                    let (tx, rx) = tokio::sync::mpsc::channel(100);
+
                     let read_field_fut = async move {
-                        while let Some(val) = field.next().await {
-                            if let Err(er) = tx.send(val).await {
+                        let stream = field.map(|res| {
+                            res.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+                        });
+                        let reader = StreamReader::new(stream);
+                        // Buffer input to aggregate small chunks
+                        let reader = BufReader::with_capacity(1024 * 1024 * 2, reader);
+                        // Read from buffer in large chunks
+                        let mut stream = ReaderStream::with_capacity(reader, 1024 * 1024 * 2);
+
+                        while let Some(chunk) = stream.next().await {
+                            if let Err(er) = tx.send(chunk).await {
                                 tracing::warn!("Receiver ended {er:?}");
                                 break;
                             }
                         }
                     };
-                    let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+
                     let write_docker_fut = async {
+                        let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
                         'ba: {
                             let mut stream = images.import_from_stream(stream);
                             while let Some(data) = stream.next().await {
@@ -121,6 +135,7 @@ pub async fn push_image(
                             Err(docker_api::Error::Any("failed".into()))
                         }
                     };
+
                     let (_, image) = tokio::join!(read_field_fut, write_docker_fut);
 
                     let image = match image {
