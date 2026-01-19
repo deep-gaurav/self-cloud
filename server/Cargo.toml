@@ -68,6 +68,7 @@ phf.workspace = true
 
 struct-patch.workspace = true
 json-patch.workspace = true
+tempfile = "3.24.0"
 
 [build-dependencies]
 chrono = "0.4"

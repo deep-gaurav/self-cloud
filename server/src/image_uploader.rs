@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tokio::io::AsyncWriteExt; // Import for write_all
 
 use app::common::{get_docker, ContainerStatus, ProjectType};
 use axum::{
@@ -75,28 +76,32 @@ pub async fn push_image(
                     let id = format!("selfcloud_image_{}", project_id.to_string());
                     info!("Uploading image to {id}");
 
-                    let (tx, rx) = tokio::sync::mpsc::channel(100);
+                    // Create a named temporary file
+                    let temp_file = tempfile::NamedTempFile::new()?;
+                    let temp_path = temp_file.path().to_owned();
+                    let (file, temp_path_handle) = temp_file.keep()?; // Keep the file so we can read it later
+                    let mut async_file = tokio::fs::File::from_std(file);
 
-                    let read_field_fut = async move {
-                        let stream = field.map(|res| {
-                            res.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-                        });
-                        let reader = StreamReader::new(stream);
-                        // Buffer input to aggregate small chunks
-                        let reader = BufReader::with_capacity(1024 * 1024 * 2, reader);
-                        // Read from buffer in large chunks
-                        let mut stream = ReaderStream::with_capacity(reader, 1024 * 1024 * 2);
+                    // Phase 1: Stream to temporary file
+                    let stream = field.map(|res| {
+                        res.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+                    });
+                    let reader = StreamReader::new(stream);
+                    let mut reader = BufReader::with_capacity(1024 * 1024 * 2, reader);
 
-                        while let Some(chunk) = stream.next().await {
-                            if let Err(er) = tx.send(chunk).await {
-                                tracing::warn!("Receiver ended {er:?}");
-                                break;
-                            }
-                        }
-                    };
+                    // Copy data to file
+                    tokio::io::copy(&mut reader, &mut async_file).await?;
+                    async_file.flush().await?;
+                    drop(async_file); // Close the file handle
 
-                    let write_docker_fut = async {
-                        let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+                    info!("Image saved to temporary file: {:?}", temp_path);
+
+                    // Phase 2: Import from file to Docker
+                    let file = tokio::fs::File::open(&temp_path).await?;
+                    let reader = BufReader::new(file);
+                    let stream = ReaderStream::new(reader);
+
+                    let image_result = {
                         'ba: {
                             let mut stream = images.import_from_stream(stream);
                             while let Some(data) = stream.next().await {
@@ -136,9 +141,13 @@ pub async fn push_image(
                         }
                     };
 
-                    let (_, image) = tokio::join!(read_field_fut, write_docker_fut);
+                    // Cleanup: Delete the temporary file manually since we used keep()
+                    if let Err(e) = tokio::fs::remove_file(&temp_path).await {
+                        warn!("Failed to remove temp file {:?}: {}", temp_path, e);
+                    }
+                    drop(temp_path_handle); // This is just a marker, the file is already deleted
 
-                    let image = match image {
+                    let image = match image_result {
                         Ok(image) => image,
                         Err(err) => {
                             tracing::error!("Failed to load image {err:?}");
